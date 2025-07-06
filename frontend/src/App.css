@@ -1,3 +1,128 @@
 .App {
   text-align: center;
+  padding: 2rem 1rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.App-header {
+  background-color: white;
+  padding: 2rem;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  margin-bottom: 2rem;
+}
+
+.App-header h1 {
+  margin: 0 0 1rem 0;
+  color: var(--primary-color);
+  font-size: 2.5rem;
+}
+
+.App-header p {
+  font-size: 1.1rem;
+  color: #555;
+  max-width: 600px;
+  margin: 0 auto 2rem auto;
+}
+
+.level-selection {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.level-selection button {
+  background-color: white;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.level-selection button:hover,
+.level-selection button.active {
+  background-color: var(--primary-color);
+  color: var(--text-light-color);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.personal-btn {
+  background-color: var(--correct-color);
+  color: white;
+  border-color: var(--correct-color);
+}
+.personal-btn:hover {
+  background-color: #3dcda7;
+  border-color: #3dcda7;
+}
+
+.feedback-banner {
+  background-color: #fffbe6; /* Helles Gelb */
+  border: 1px solid #ffe58f;
+  border-radius: var(--border-radius);
+  padding: 0.5rem 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.feedback-banner p {
+  margin: 0;
+  color: #8a6d3b; /* Dunkles Gelb/Braun */
+  font-weight: 500;
+}
+
+.user-profile {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  text-align: left;
+}
+
+.user-profile h3 {
+  margin-top: 0;
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--secondary-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.user-profile h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #555;
+}
+
+.profile-section {
+  margin-bottom: 1rem;
+}
+
+.letter-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.letter-tag {
+  background-color: var(--incorrect-color);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.user-profile p {
+  word-wrap: break-word;
+  color: #555;
+  margin: 0;
 } 

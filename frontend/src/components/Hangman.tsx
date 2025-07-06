@@ -1,80 +1,102 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './Hangman.css';
+import { fetchWord, logGame, WordData, fetchHint } from '../api';
 
 interface HangmanProps {
   level: string;
   onGameEnd: (word: string, incorrectLetters: string[]) => void;
-  problemLetters: string[];
+  useModel: boolean;
 }
 
-const Hangman: React.FC<HangmanProps> = ({ level, onGameEnd, problemLetters }) => {
-    const [selectedWord, setSelectedWord] = useState<string>('');
+const Hangman: React.FC<HangmanProps> = ({ level, onGameEnd, useModel }) => {
+    const [wordData, setWordData] = useState<WordData | null>(null);
     const [guessedLetters, setGuessedLetters] = useState<string[]>([]);
     const [wrongGuesses, setWrongGuesses] = useState<number>(0);
     const [incorrectLetters, setIncorrectLetters] = useState<string[]>([]);
     const [gameHasEnded, setGameHasEnded] = useState(false);
+    const [hint, setHint] = useState<string>('');
 
+    const selectedWord = wordData ? wordData.word.toLowerCase() : '';
     const isGameOver = wrongGuesses >= 6;
     const isWinner = selectedWord !== '' && selectedWord.split('').every(letter => guessedLetters.includes(letter));
 
-    useEffect(() => {
-        if ((isGameOver || isWinner) && !gameHasEnded) {
+    const handleGameEnd = useCallback(() => {
+        if (!gameHasEnded) {
             onGameEnd(selectedWord, incorrectLetters);
+            logGame(selectedWord, wrongGuesses, isWinner);
             setGameHasEnded(true);
         }
-    }, [isGameOver, isWinner, selectedWord, incorrectLetters, onGameEnd, gameHasEnded]);
+    }, [gameHasEnded, incorrectLetters, onGameEnd, selectedWord, wrongGuesses, isWinner]);
 
 
     useEffect(() => {
-        const fetchWord = async () => {
-            try {
-                let url = `http://localhost:5000/api/word?level=${level}`;
-                if (problemLetters.length > 0) {
-                  url += `&problem_letters=${problemLetters.join(',')}`;
-                }
-                const response = await fetch(url);
-                const data = await response.json();
-                setSelectedWord(data.word.toLowerCase());
-            } catch (error) {
-                console.error('Error fetching word:', error);
-                // Fallback word in case of an error
-                setSelectedWord('fehler');
-            }
-        };
+        if (isGameOver || isWinner) {
+            handleGameEnd();
+        }
+    }, [isGameOver, isWinner, handleGameEnd]);
 
-        fetchWord();
-    }, [level, problemLetters]);
+
+    useEffect(() => {
+        const getWord = async () => {
+            const data = await fetchWord(level, useModel);
+            setWordData(data);
+            setGuessedLetters([]);
+            setWrongGuesses(0);
+            setIncorrectLetters([]);
+            setGameHasEnded(false);
+            setHint(''); // Hinweis zurücksetzen
+        };
+        getWord();
+    }, [level, useModel]);
 
     const handleGuess = (letter: string) => {
-        if (!guessedLetters.includes(letter)) {
-            setGuessedLetters([...guessedLetters, letter]);
-            if (!selectedWord.includes(letter)) {
+        const normalizedLetter = letter.toLowerCase();
+        if (!guessedLetters.includes(normalizedLetter)) {
+            const isCorrect = selectedWord.includes(normalizedLetter);
+            setGuessedLetters([...guessedLetters, normalizedLetter]);
+            if (!isCorrect) {
                 setWrongGuesses(wrongGuesses + 1);
-                setIncorrectLetters([...incorrectLetters, letter]);
+                setIncorrectLetters([...incorrectLetters, normalizedLetter]);
             }
         }
     };
 
-    const displayWord = selectedWord.split('').map(letter => (guessedLetters.includes(letter) ? letter : '_')).join(' ');
+    const requestHint = async () => {
+        if (!wordData) return;
+        const fetchedHint = await fetchHint(wordData.word);
+        setHint(fetchedHint);
+    };
+
+    const displayWord = selectedWord
+        .split('')
+        .map(letter => (guessedLetters.includes(letter) || letter === ' ' ? letter : '_'))
+        .join(' ');
+
+    const alphabet = 'abcdefghijklmnopqrstuvwxyzäöüß'.split('');
 
     return (
         <div className="hangman-container">
-            <h1>Hangman</h1>
             <div className="word-display">{displayWord}</div>
             <div className="keyboard">
-                {'abcdefghijklmnopqrstuvwxyz'.split('').map(letter => (
+                {alphabet.map(letter => (
                     <button
                         key={letter}
                         onClick={() => handleGuess(letter)}
-                        disabled={!!(guessedLetters.includes(letter) || isGameOver || isWinner)}
+                        disabled={guessedLetters.includes(letter) || isGameOver || isWinner}
                     >
                         {letter}
                     </button>
                 ))}
             </div>
-            {isGameOver && <div className="game-over">Verloren! Das Wort war: {selectedWord}</div>}
-            {isWinner && <div className="game-over">Gewonnen!</div>}
-            <div className="wrong-guesses">Falsche Versuche: {wrongGuesses} / 6</div>
+            <div className="game-controls">
+                <div className="wrong-guesses">Falsche Versuche: {wrongGuesses} / 6</div>
+                <button className="hint-btn" onClick={requestHint} disabled={!!hint || isGameOver || isWinner}>
+                    Tipp anfordern
+                </button>
+            </div>
+            {hint && <div className="hint-display">{hint}</div>}
+            {isGameOver && <div className="game-over game-over-lost">Verloren! Das Wort war: <strong>{selectedWord}</strong></div>}
+            {isWinner && <div className="game-over game-over-won">Super! Du hast das Wort erraten!</div>}
         </div>
     );
 };

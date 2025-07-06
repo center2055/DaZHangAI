@@ -1,0 +1,14 @@
+{
+  "words": [
+    { "word": "Umwelt", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Regierung", "type": "Nomen", "category": "Politik" },
+    { "word": "Wissenschaft", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Gesellschaft", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Verantwortung", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Entwicklung", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Beziehung", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Unterhaltung", "type": "Nomen", "category": "Aktivitäten" },
+    { "word": "Erinnerung", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Zukunft", "type": "Nomen", "category": "Abstrakt" }
+  ]
+} 

@@ -1,0 +1,14 @@
+{
+  "words": [
+    { "word": "Apfel", "type": "Nomen", "category": "Essen" },
+    { "word": "Banane", "type": "Nomen", "category": "Essen" },
+    { "word": "Haus", "type": "Nomen", "category": "Orte" },
+    { "word": "Auto", "type": "Nomen", "category": "Transport" },
+    { "word": "Buch", "type": "Nomen", "category": "Gegenstände" },
+    { "word": "Stuhl", "type": "Nomen", "category": "Möbel" },
+    { "word": "Tisch", "type": "Nomen", "category": "Möbel" },
+    { "word": "Lampe", "type": "Nomen", "category": "Gegenstände" },
+    { "word": "Schule", "type": "Nomen", "category": "Orte" },
+    { "word": "Lehrer", "type": "Nomen", "category": "Berufe" }
+  ]
+} 

@@ -1,2 +1,3 @@
 Flask
-Flask-Cors 
+Flask-Cors>=4.0.0
+pandas 

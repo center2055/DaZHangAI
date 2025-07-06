@@ -1,13 +1,31 @@
+:root {
+  --primary-color: #4a90e2; /* Ein freundliches Blau */
+  --primary-hover-color: #357abd;
+  --secondary-color: #f5f7fa; /* Heller Hintergrund */
+  --text-color: #333;
+  --text-light-color: #f8f9fa;
+  --correct-color: #50e3c2; /* Grün für richtige Buchstaben */
+  --incorrect-color: #e35050; /* Rot für falsche Buchstaben */
+  --border-color: #d1d5da;
+  --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  --border-radius: 8px;
+  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  line-height: 1.6;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+  background-color: #eef1f4;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
 } 

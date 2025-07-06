@@ -1,0 +1,14 @@
+{
+  "words": [
+    { "word": "Fahrrad", "type": "Nomen", "category": "Transport" },
+    { "word": "Wohnung", "type": "Nomen", "category": "Orte" },
+    { "word": "Küche", "type": "Nomen", "category": "Orte" },
+    { "word": "Fenster", "type": "Nomen", "category": "Gegenstände" },
+    { "word": "Flughafen", "type": "Nomen", "category": "Transport" },
+    { "word": "Bahnhof", "type": "Nomen", "category": "Transport" },
+    { "word": "Reise", "type": "Nomen", "category": "Aktivitäten" },
+    { "word": "Urlaub", "type": "Nomen", "category": "Aktivitäten" },
+    { "word": "Beruf", "type": "Nomen", "category": "Arbeit" },
+    { "word": "Gesundheit", "type": "Nomen", "category": "Allgemein" }
+  ]
+} 
