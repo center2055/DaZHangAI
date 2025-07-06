@@ -1,0 +1,10 @@
+Apfel
+Banane
+Haus
+Auto
+Buch
+Stuhl
+Tisch
+Lampe
+Schule
+Lehrer 

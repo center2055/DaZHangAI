@@ -1,0 +1,10 @@
+Fahrrad
+Wohnung
+Küche
+Fenster
+Flughafen
+Bahnhof
+Reise
+Urlaub
+Beruf
+Gesundheit 
