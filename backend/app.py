@@ -3,14 +3,14 @@ import random
 import csv
 import json
 from datetime import datetime, timezone, timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from collections import Counter
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../frontend/build')
 # Vereinfachte und robustere CORS-Konfiguration für die Entwicklung
-CORS(app, origins=["http://localhost:3000", "http://localhost:3001"])
+CORS(app) # Enable CORS for all routes
 
 WORDLISTS_DIR = os.path.join(os.path.dirname(__file__), 'word_lists')
 USER_PROFILES_FILE = os.path.join(os.path.dirname(__file__), 'user_profiles.json')
@@ -227,28 +227,91 @@ def log_game():
         
     return jsonify({'success': True, 'problem_letters': profile.get('problem_letters', [])}), 201
 
-# Simuliert eine einfache Benutzerdatenbank. In einer echten Anwendung wäre dies eine Datenbank.
-# Das Passwort für 'admin' ist 'password'. Der Hash wurde mit generate_password_hash('password') erstellt.
-users = {
-    "admin": {
-        "hash": "pbkdf2:sha256:600000$cMoKRRyCI3bwXDEp$79414674ac973a8a313e6e8e826b52825d14b301721543ab763133606ad4de48"
-    }
-}
+# --- V2 AUTH AND MULTI-USER SYSTEM ---
 
-@app.route('/api/login', methods=['POST'])
-def login():
+USERS_DB_FILE = os.path.join(os.path.dirname(__file__), 'users.json')
+
+def load_users():
+    if not os.path.exists(USERS_DB_FILE):
+        teacher_hash = "scrypt:32768:8:1$i1KBgWulYW0KMQbW$763fae0314639b3937d0e537a4fe90c42bae16fcb576ef10dd685d6d3a91bae87c8d3220236606cb1413ea6dfc8fb5d1b4df7061ae1a563d84e14b62dabe6619"
+        initial_data = {
+            "users": [
+                {"username": "Lehrer", "hash": teacher_hash, "role": "teacher"}
+            ]
+        }
+        save_users(initial_data)
+        return initial_data
+    with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def save_users(users_data):
+    with open(USERS_DB_FILE, 'w', encoding='utf-8') as f:
+        json.dump(users_data, f, indent=2)
+
+@app.route('/api/v2/login', methods=['POST'])
+def login_v2():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    users_data = load_users()
+    
+    user = next((u for u in users_data['users'] if u['username'].lower() == username.lower()), None)
+
+    if user and check_password_hash(user.get('hash', ''), password):
+        return jsonify({
+            'success': True, 
+            'user': {'username': user['username'], 'role': user['role']}
+        })
+    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+@app.route('/api/v2/register', methods=['POST'])
+def register_v2():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
 
-    user = users.get(username)
+    if not username or not password:
+        return jsonify({"success": False, "message": "Username and password are required"}), 400
 
-    if user and check_password_hash(user['hash'], password):
-        # In einer echten App würden Sie hier einen Session-Token oder JWT zurückgeben.
-        return jsonify({'success': True, 'message': 'Login successful'})
+    users_data = load_users()
+    if any(u['username'].lower() == username.lower() for u in users_data['users']):
+        return jsonify({"success": False, "message": "Username already exists"}), 409
+
+    new_user = {
+        "username": username,
+        "hash": generate_password_hash(password),
+        "role": "student",
+        "progress": {
+            "seen_words": [],
+            "failed_words": {},
+            "problem_letters": []
+        }
+    }
+    users_data['users'].append(new_user)
+    save_users(users_data)
     
-    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+    return jsonify({"success": True}), 201
 
+@app.route('/api/v2/students_data')
+def get_students_data_v2():
+    # In a real app, this would be protected by a token check
+    
+    all_users = load_users().get('users', [])
+    all_profiles = load_user_profiles()
+    
+    students_data = []
+    for user in all_users:
+        if user.get('role') == 'student':
+            profile = all_profiles.get(user['username'], {})
+            students_data.append({
+                'username': user['username'],
+                'progress': {
+                    'failed_words': len(profile.get('failed_words', {})),
+                    'problem_letters': profile.get('problem_letters', [])
+                }
+            })
+            
+    return jsonify(students_data)
 
 if __name__ == '__main__':
     # 'use_reloader=False' behebt den OSError unter Windows

@@ -1,0 +1,43 @@
+.dashboard-container {
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.dashboard-container h2 {
+    color: var(--primary-color);
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.students-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--background-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow: hidden; /* Für abgerundete Ecken bei der Tabelle */
+}
+
+.students-table th, .students-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.students-table thead {
+    background-color: var(--secondary-color);
+}
+
+.students-table th {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.students-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.students-table tbody tr:hover {
+    background-color: var(--secondary-color);
+} 

@@ -1,128 +1,107 @@
+/* App.css */
 .App {
   text-align: center;
-  padding: 2rem 1rem;
-  max-width: 800px;
+  padding: 0; /* Remove padding */
+  max-width: 1200px; /* Wider max-width for modern screens */
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 .App-header {
-  background-color: white;
-  padding: 2rem;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  margin-bottom: 2rem;
-}
-
-.App-header h1 {
-  margin: 0 0 1rem 0;
-  color: var(--primary-color);
-  font-size: 2.5rem;
-}
-
-.App-header p {
-  font-size: 1.1rem;
-  color: #555;
-  max-width: 600px;
-  margin: 0 auto 2rem auto;
-}
-
-.level-selection {
   display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--background-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.level-selection button {
-  background-color: white;
-  color: var(--primary-color);
-  border: 1px solid var(--primary-color);
-  padding: 0.75rem 1.5rem;
+.header-spacer {
+  flex-grow: 1;
+}
+
+.header-title h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  background: linear-gradient(45deg, var(--primary-color), #8a63d2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent; /* Fallback */
+}
+
+.header-title {
+  text-decoration: none;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: 2px solid var(--primary-color);
+  padding: 0.5rem 1rem;
   border-radius: var(--border-radius);
-  font-size: 1rem;
-  font-weight: bold;
+  text-decoration: none;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
+  display: inline-block;
 }
 
-.level-selection button:hover,
-.level-selection button.active {
-  background-color: var(--primary-color);
-  color: var(--text-light-color);
-  transform: translateY(-2px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.personal-btn {
-  background-color: var(--correct-color);
-  color: white;
-  border-color: var(--correct-color);
-}
-.personal-btn:hover {
-  background-color: #3dcda7;
-  border-color: #3dcda7;
-}
-
-.feedback-banner {
-  background-color: #fffbe6; /* Helles Gelb */
-  border: 1px solid #ffe58f;
-  border-radius: var(--border-radius);
-  padding: 0.5rem 1.5rem;
-  margin-bottom: 2rem;
-  box-shadow: var(--box-shadow);
-}
-
-.feedback-banner p {
-  margin: 0;
-  color: #8a6d3b; /* Dunkles Gelb/Braun */
-  font-weight: 500;
-}
-
-.user-profile {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background-color: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  text-align: left;
-}
-
-.user-profile h3 {
-  margin-top: 0;
+.nav-button:hover {
+  background-color: transparent;
   color: var(--primary-color);
-  border-bottom: 2px solid var(--secondary-color);
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
 }
 
-.user-profile h4 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-  color: #555;
+.nav-button.secondary {
+  background-color: transparent;
+  color: var(--text-color);
+  border: 2px solid var(--border-color);
 }
 
-.profile-section {
-  margin-bottom: 1rem;
+.nav-button.secondary:hover {
+  background-color: var(--border-color);
+  color: var(--background-color);
 }
 
-.letter-tags {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+main {
+  flex-grow: 1;
+  padding: 2rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.letter-tag {
-  background-color: var(--incorrect-color);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-weight: bold;
-  font-size: 1rem;
+.dark-mode-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  font-size: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.2s ease;
 }
 
-.user-profile p {
-  word-wrap: break-word;
-  color: #555;
-  margin: 0;
+.dark-mode-toggle:hover {
+  background-color: var(--secondary-color);
+  border-color: var(--primary-color);
+}
+
+/* Cleanup old styles */
+.App-header h1 {
+  all: unset; /* Reset h1 inside header to be styled by parent .header-title */
+}
+.header-top-row {
+  display: none; /* Hide old structure */
 } 

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { login } from '../authApi';
-import { User } from '../types';
-import './Login.css';
+import { register } from '../authApi';
+import './Login.css'; // Wir können die gleichen Stile wiederverwenden
 
-interface LoginProps {
-  onLoginSuccess: (user: User) => void;
+interface RegisterProps {
+  onRegisterSuccess: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,19 +15,19 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     e.preventDefault();
     setError('');
 
-    const result = await login(username, password);
+    const result = await register(username, password);
 
-    if (result.success && result.user) {
-      onLoginSuccess(result.user);
+    if (result.success) {
+      onRegisterSuccess();
     } else {
-      setError(result.message || 'Login fehlgeschlagen.');
+      setError(result.message || 'Registrierung fehlgeschlagen.');
     }
   };
 
   return (
     <div className="login-container">
       <form onSubmit={handleSubmit} className="login-form">
-        <h2>Anmelden</h2>
+        <h2>Registrieren</h2>
         {error && <p className="error-message">{error}</p>}
         <div className="form-group">
           <label htmlFor="username">Benutzername</label>
@@ -50,10 +49,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             required
           />
         </div>
-        <button type="submit" className="login-btn">Anmelden</button>
+        <button type="submit" className="login-btn">Registrieren</button>
       </form>
     </div>
   );
 };
 
-export default Login; 
+export default Register; 

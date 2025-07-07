@@ -1,92 +1,94 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import './App.css';
 import Hangman from './components/Hangman';
-import { fetchFeedback, logGame } from './api';
+import Login from './components/Login';
+import Register from './components/Register';
+import TeacherDashboard from './components/TeacherDashboard';
+import { User } from './types';
+import { logout } from './authApi';
+import WelcomePage from './components/WelcomePage';
+
+// A new component to contain the logic that needs access to routing hooks
+const AppContent = () => {
+    const [user, setUser] = useState<User | null>(() => {
+        const savedUser = localStorage.getItem('user');
+        return savedUser ? JSON.parse(savedUser) : null;
+    });
+    const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+        const savedMode = localStorage.getItem('darkMode');
+        return savedMode === 'true';
+    });
+    const location = useLocation(); // Hook to get location
+
+    useEffect(() => {
+        if (user) {
+            localStorage.setItem('user', JSON.stringify(user));
+        } else {
+            localStorage.removeItem('user');
+        }
+    }, [user]);
+
+    useEffect(() => {
+        document.body.className = isDarkMode ? 'dark-mode' : '';
+        localStorage.setItem('darkMode', isDarkMode.toString());
+    }, [isDarkMode]);
+
+    const handleLogout = async () => {
+        if (user) {
+            await logout(user.username);
+            setUser(null);
+        }
+    };
+
+    const toggleDarkMode = () => {
+        setIsDarkMode(!isDarkMode);
+    };
+
+    return (
+        <div className="App">
+            <header className="App-header">
+                {location.pathname !== '/' && <Link to="/" className="header-title"><h1>DaZHang</h1></Link>}
+                <div className="header-spacer"></div>
+                <nav className="header-nav">
+                    {user ? (
+                        <>
+                            {user.role === 'teacher' && <Link to="/dashboard" className="nav-button">Lehrer-Dashboard</Link>}
+                            <button onClick={handleLogout} className="nav-button">Abmelden</button>
+                        </>
+                    ) : (
+                        // Only show login/register in header if not on the welcome page
+                        location.pathname !== '/' && (
+                            <>
+                                <Link to="/login" className="nav-button">Anmelden</Link>
+                                <Link to="/register" className="nav-button secondary">Registrieren</Link>
+                            </>
+                        )
+                    )}
+                    <button onClick={toggleDarkMode} className="dark-mode-toggle">
+                        {isDarkMode ? '☀️' : '🌙'}
+                    </button>
+                </nav>
+            </header>
+            <main>
+                <Routes>
+                    <Route path="/" element={user ? <Hangman user={user} /> : <WelcomePage />} />
+                    <Route path="/login" element={!user ? <Login onLoginSuccess={setUser} /> : <Navigate to="/" />} />
+                    <Route path="/register" element={!user ? <Register onRegisterSuccess={() => { /* maybe redirect or show message */ }} /> : <Navigate to="/" />} />
+                    <Route path="/dashboard" element={user && user.role === 'teacher' ? <TeacherDashboard /> : <Navigate to="/" />} />
+                </Routes>
+            </main>
+        </div>
+    );
+}
+
 
 function App() {
-  const [level, setLevel] = useState<string>('a1');
-  const [gameId, setGameId] = useState<number>(1);
-  const [userProfile, setUserProfile] = useState<{ incorrectLetters: string[], problemLetters: string[] }>({ 
-    incorrectLetters: [],
-    problemLetters: [] 
-  });
-  const [useModel, setUseModel] = useState<boolean>(false);
-  const [activeButton, setActiveButton] = useState<string>('a1');
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  useEffect(() => {
-    const getFeedback = async () => {
-      if (gameId > 1) { // Nicht beim allerersten Laden
-        const message = await fetchFeedback();
-        setFeedback(message);
-      }
-    };
-    getFeedback();
-  }, [gameId]);
-
-
-  const startNewGame = (newLevel: string, shouldUseModel = false) => {
-    setLevel(newLevel);
-    setUseModel(shouldUseModel);
-    setGameId(prevId => prevId + 1);
-    setActiveButton(shouldUseModel ? 'personal' : newLevel);
-  }
-
-  const handleGameEnd = async (word: string, incorrectLetters: string[]) => {
-    // Vermeide Duplikate im Fehlerprofil
-    const newIncorrectLetters = Array.from(new Set([...userProfile.incorrectLetters, ...incorrectLetters]));
-    const gameResult = await logGame(word, incorrectLetters.length, incorrectLetters.length < 6);
-    
-    setUserProfile({ 
-      incorrectLetters: newIncorrectLetters,
-      problemLetters: gameResult.problem_letters 
-    });
-  };
-
-  return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Deutsch-Lern-Galgenmännchen</h1>
-        <p>Wähle ein Sprachniveau oder starte dein persönliches KI-Training, um gezielt an deinen Schwächen zu arbeiten.</p>
-        <div className="level-selection">
-          <button onClick={() => startNewGame('a1')} className={activeButton === 'a1' ? 'active' : ''}>A1</button>
-          <button onClick={() => startNewGame('a2')} className={activeButton === 'a2' ? 'active' : ''}>A2</button>
-          <button onClick={() => startNewGame('b1')} className={activeButton === 'b1' ? 'active' : ''}>B1</button>
-          {userProfile.incorrectLetters.length > 0 && (
-            <button className={`personal-btn ${activeButton === 'personal' ? 'active' : ''}`} onClick={() => startNewGame(level, true)}>
-              KI-Training
-            </button>
-          )}
-        </div>
-      </header>
-
-      {feedback && (
-        <div className="feedback-banner">
-          <p>{feedback}</p>
-        </div>
-      )}
-      
-      <Hangman key={gameId} level={level} onGameEnd={handleGameEnd} useModel={useModel} />
-
-      {userProfile.incorrectLetters.length > 0 && (
-        <div className="user-profile">
-          <h3>Dein Lern-Profil</h3>
-          {userProfile.problemLetters.length > 0 && (
-            <div className="profile-section">
-              <h4>Top 5 Problembuchstaben:</h4>
-              <div className="letter-tags">
-                {userProfile.problemLetters.map(letter => <span key={letter} className="letter-tag">{letter}</span>)}
-              </div>
-            </div>
-          )}
-          <div className="profile-section">
-            <h4>Alle bisher falsch geratenen Buchstaben:</h4>
-            <p>{userProfile.incorrectLetters.join(', ')}</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    return (
+        <Router>
+            <AppContent />
+        </Router>
+    );
 }
 
 export default App; 

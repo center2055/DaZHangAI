@@ -1,0 +1,29 @@
+{
+  "users": [
+    {
+      "username": "Lehrer",
+      "hash": "scrypt:32768:8:1$i1KBgWulYW0KMQbW$763fae0314639b3937d0e537a4fe90c42bae16fcb576ef10dd685d6d3a91bae87c8d3220236606cb1413ea6dfc8fb5d1b4df7061ae1a563d84e14b62dabe6619",
+      "role": "teacher"
+    },
+    {
+      "username": "Jakob",
+      "hash": "scrypt:32768:8:1$DbWRo3OpIdH6e2B8$53a750c3ce9098ec61f7831dc1c03f4341e7b2a312b5262b07c831e3203c90d1b6d5271836fba8bd1eafbf8602f3f4364179cbbcf2cf5e7f77813774e8b465d3",
+      "role": "student",
+      "progress": {
+        "seen_words": [],
+        "failed_words": {},
+        "problem_letters": []
+      }
+    },
+    {
+      "username": "Jakob2",
+      "hash": "scrypt:32768:8:1$sZg41F0LkIjRkLgu$36c07b7fa632b68db3f585785204cb6203b1ea38bb21f555c91382a15003730bde498932468f5d9c6cfdb5972547fda6090fa9507870dad602b0bbf9137aa5cc",
+      "role": "student",
+      "progress": {
+        "seen_words": [],
+        "failed_words": {},
+        "problem_letters": []
+      }
+    }
+  ]
+}
