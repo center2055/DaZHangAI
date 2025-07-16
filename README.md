@@ -1,5 +1,7 @@
 # DaZHangAI - Intelligentes Galgenmännchen-Spiel
 
+> **Hinweis:** Dieses Projekt wird im Rahmen des [Bundeswettbewerbs Künstliche Intelligenz (BWKI)](https://www.bw-ki.de/) entwickelt. Das Ziel ist es, mit KI die Welt ein Stückchen besser zu machen – in diesem Fall, indem das Sprachenlernen effektiver und persönlicher gestaltet wird. Der BWKI motiviert junge Talente, ihre eigenen Ideen im Bereich der KI umzusetzen und innovative Lösungen für reale Probleme zu schaffen.
+
 DaZHangAI ist eine interaktive Webanwendung, die das klassische Galgenmännchen-Spiel mit intelligenten Funktionen erweitert, um den Lernfortschritt von Sprachschülern zu optimieren. Die Anwendung wurde mit React im Frontend und Flask im Backend entwickelt.
 
 ## Inhaltsverzeichnis
