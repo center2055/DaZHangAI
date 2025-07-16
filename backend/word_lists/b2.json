@@ -1,0 +1,54 @@
+{
+    "words": [
+        {
+            "word": "die Fähigkeit",
+            "type": "Nomen",
+            "category": "Person"
+        },
+        {
+            "word": "gepflegt",
+            "type": "Adjektiv",
+            "category": "Person"
+        },
+        {
+            "word": "lesbisch",
+            "type": "Adjektiv",
+            "category": "Person"
+        },
+        {
+            "word": "schwul",
+            "type": "Adjektiv",
+            "category": "Person"
+        },
+        {
+            "word": "das Temperament",
+            "type": "Nomen",
+            "category": "Person"
+        },
+        {
+            "word": "träge",
+            "type": "Adjektiv",
+            "category": "Person"
+        },
+        {
+            "word": "das Wesen",
+            "type": "Nomen",
+            "category": "Person"
+        },
+        {
+            "word": "belasten",
+            "type": "Verb",
+            "category": "Gesellschaft"
+        },
+        {
+            "word": "die Beschwerde",
+            "type": "Nomen",
+            "category": "Gesellschaft"
+        },
+        {
+            "word": "die Börse",
+            "type": "Nomen",
+            "category": "Wirtschaft"
+        }
+    ]
+} 

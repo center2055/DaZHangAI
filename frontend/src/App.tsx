@@ -8,12 +8,22 @@ import TeacherDashboard from './components/TeacherDashboard';
 import { User } from './types';
 import { logout } from './authApi';
 import WelcomePage from './components/WelcomePage';
+import PlacementTest from './components/PlacementTest'; // Import der neuen Komponente
+
+interface AppState {
+    user: User | null;
+    token: string | null;
+}
 
 // A new component to contain the logic that needs access to routing hooks
 const AppContent = () => {
-    const [user, setUser] = useState<User | null>(() => {
+    const [appState, setAppState] = useState<AppState>(() => {
         const savedUser = localStorage.getItem('user');
-        return savedUser ? JSON.parse(savedUser) : null;
+        const savedToken = localStorage.getItem('token');
+        return {
+            user: savedUser ? JSON.parse(savedUser) : null,
+            token: savedToken ?? null
+        };
     });
     const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
         const savedMode = localStorage.getItem('darkMode');
@@ -22,12 +32,14 @@ const AppContent = () => {
     const location = useLocation(); // Hook to get location
 
     useEffect(() => {
-        if (user) {
-            localStorage.setItem('user', JSON.stringify(user));
+        if (appState.user && appState.token) {
+            localStorage.setItem('user', JSON.stringify(appState.user));
+            localStorage.setItem('token', appState.token);
         } else {
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
         }
-    }, [user]);
+    }, [appState]);
 
     useEffect(() => {
         document.body.className = isDarkMode ? 'dark-mode' : '';
@@ -35,9 +47,20 @@ const AppContent = () => {
     }, [isDarkMode]);
 
     const handleLogout = async () => {
-        if (user) {
-            await logout(user.username);
-            setUser(null);
+        if (appState.user) {
+            await logout(appState.user.username);
+            setAppState({ user: null, token: null });
+        }
+    };
+
+    const handleLoginSuccess = (user: User, token: string) => {
+        setAppState({ user, token });
+    };
+
+    const handleTestComplete = (level: string) => {
+        if(appState.user) {
+            const updatedUser = { ...appState.user, level };
+            setAppState({ ...appState, user: updatedUser });
         }
     };
 
@@ -51,9 +74,9 @@ const AppContent = () => {
                 {location.pathname !== '/' && <Link to="/" className="header-title"><h1>DaZHang</h1></Link>}
                 <div className="header-spacer"></div>
                 <nav className="header-nav">
-                    {user ? (
+                    {appState.user ? (
                         <>
-                            {user.role === 'teacher' && <Link to="/dashboard" className="nav-button">Lehrer-Dashboard</Link>}
+                            {appState.user.role === 'teacher' && <Link to="/dashboard" className="nav-button">Lehrer-Dashboard</Link>}
                             <button onClick={handleLogout} className="nav-button">Abmelden</button>
                         </>
                     ) : (
@@ -72,10 +95,16 @@ const AppContent = () => {
             </header>
             <main>
                 <Routes>
-                    <Route path="/" element={user ? <Hangman user={user} /> : <WelcomePage />} />
-                    <Route path="/login" element={!user ? <Login onLoginSuccess={setUser} /> : <Navigate to="/" />} />
-                    <Route path="/register" element={!user ? <Register onRegisterSuccess={() => { /* maybe redirect or show message */ }} /> : <Navigate to="/" />} />
-                    <Route path="/dashboard" element={user && user.role === 'teacher' ? <TeacherDashboard /> : <Navigate to="/" />} />
+                    <Route path="/" element={
+                        !appState.user || !appState.token ? <WelcomePage /> :
+                        appState.user.role === 'teacher' ? <Navigate to="/dashboard" /> :
+                        appState.user.level === null ? <Navigate to="/placement-test" /> :
+                        <Hangman user={appState.user} token={appState.token} />
+                    } />
+                    <Route path="/login" element={!appState.user ? <Login onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} />
+                    <Route path="/register" element={!appState.user ? <Register onRegisterSuccess={(user) => handleLoginSuccess(user, '')} /> : <Navigate to="/" />} />
+                    <Route path="/dashboard" element={appState.user && appState.user.role === 'teacher' && appState.token ? <TeacherDashboard user={appState.user} token={appState.token} /> : <Navigate to="/" />} />
+                    <Route path="/placement-test" element={appState.user && appState.user.level === null ? <PlacementTest user={appState.user} onTestComplete={handleTestComplete} /> : <Navigate to="/" />} />
                 </Routes>
             </main>
         </div>

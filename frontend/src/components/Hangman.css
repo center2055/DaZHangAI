@@ -21,12 +21,12 @@
 }
 
 .keyboard {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  width: 100%;
-  max-width: 600px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    max-width: 800px; /* Verhindert, dass die Tastatur zu breit wird */
+    margin: 20px auto;
 }
 
 .keyboard-row {
@@ -36,31 +36,40 @@
 }
 
 .keyboard button {
-  font-size: 1.2rem;
-  padding: 0.75rem 0.5rem;
-  border: 1px solid var(--border-color);
-  background-color: var(--background-color);
-  color: var(--text-color);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-transform: uppercase;
+    margin: 0; /* Margin wird jetzt durch gap gesteuert */
+    padding: 12px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--key-border-color);
+    border-bottom: 3px solid var(--key-border-shadow-color);
+    background-color: var(--key-bg-color);
+    color: var(--key-text-color);
+    transition: background-color 0.15s, transform 0.1s;
+    min-width: 48px;
+    text-transform: uppercase;
 }
 
 .keyboard button:hover:not(:disabled) {
-  background-color: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
+    background-color: var(--key-hover-bg-color);
+    transform: translateY(-2px);
+}
+
+.keyboard button:active:not(:disabled) {
+    transform: translateY(1px);
+    border-bottom-width: 1px;
+}
+
+.keyboard button.guessed {
+    background-color: var(--key-guessed-bg-color);
+    color: var(--key-guessed-text-color);
+    text-decoration: line-through;
 }
 
 .keyboard button:disabled {
-  background-color: var(--secondary-color);
-  color: #aaa;
-  cursor: not-allowed;
-  opacity: 0.7;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 .game-over {
@@ -124,4 +133,57 @@
   border-radius: var(--border-radius);
   color: var(--text-color);
   font-style: italic;
+} 
+
+.hangman-drawing {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.2rem;
+    white-space: pre;
+    margin-bottom: 1rem;
+    line-height: 1.1;
+    color: var(--text-color-secondary);
+}
+
+.game-feedback {
+    margin-bottom: 1rem;
+    padding: 0.8rem 1.5rem;
+    border-radius: 4px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.keyboard button.guessed.correct {
+    background-color: #28a745;
+    color: white;
+    animation: flash-green 0.5s;
+}
+
+.keyboard button.guessed.incorrect {
+    background-color: #dc3545;
+    color: white;
+    animation: flash-red 0.5s;
+}
+
+@keyframes flash-green {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+    50% { transform: scale(1.1); box-shadow: 0 0 10px 5px rgba(40, 167, 69, 0.3); }
+    100% { transform: scale(1); box_shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+@keyframes flash-red {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    50% { transform: scale(1.1); box-shadow: 0 0 10px 5px rgba(220, 53, 69, 0.3); }
+    100% { transform: scale(1); box_shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
 } 

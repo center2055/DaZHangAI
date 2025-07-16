@@ -1,131 +1,231 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { User, Word } from '../types';
+import { getWord, logGame, getFeedback } from '../gameApi'; // Korrigierte Imports
 import './Hangman.css';
-import { getGameData, getHint as apiGetHint, postGameResult as apiPostGameResult } from '../gameApi';
-import { User } from '../types';
+
+const MAX_WRONG_GUESSES = 6;
+
+const HANGMAN_PICS = [
+`
+  +---+
+  |   |
+      |
+      |
+      |
+      |
+=========`,
+`
+  +---+
+  |   |
+  O   |
+      |
+      |
+      |
+=========`,
+`
+  +---+
+  |   |
+  O   |
+  |   |
+      |
+      |
+=========`,
+`
+  +---+
+  |   |
+  O   |
+ /|   |
+      |
+      |
+=========`,
+`
+  +---+
+  |   |
+  O   |
+ /|\\  |
+      |
+      |
+=========`,
+`
+  +---+
+  |   |
+  O   |
+ /|\\  |
+ /    |
+      |
+=========`,
+`
+  +---+
+  |   |
+  O   |
+ /|\\  |
+ / \\  |
+      |
+=========`
+];
+
 
 interface HangmanProps {
     user: User;
+    token: string;
+    initialWord?: Word;
+    onGameEnd?: (gameWon: boolean) => void;
+    isPlacementTest?: boolean;
 }
 
-const Hangman: React.FC<HangmanProps> = ({ user }) => {
+const Hangman: React.FC<HangmanProps> = ({ user, token, initialWord, onGameEnd, isPlacementTest = false }) => {
     const [word, setWord] = useState<string>('');
+    const [wordType, setWordType] = useState<string>('');
     const [guessedLetters, setGuessedLetters] = useState<string[]>([]);
-    const [mistakes, setMistakes] = useState<number>(0);
-    const [message, setMessage] = useState<string>('');
-    const [gameOver, setGameOver] = useState<boolean>(false);
-    const [, setGameWon] = useState<boolean>(false);
-    const [level, ] = useState<string>('a1');
-    const [useModel, ] = useState<boolean>(true);
-    const [hint, setHint] = useState<string | null>(null);
-    const [proactiveFeedback, setProactiveFeedback] = useState<string>('');
-    const [, setStartTime] = useState<Date | null>(null);
+    const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
+    const [loading, setLoading] = useState(!initialWord);
+    const [error, setError] = useState<string | null>(null);
+    const [feedback, setFeedback] = useState<string | null>(null);
+    const [useModel, setUseModel] = useState(false); // KI-Modus Steuerung
 
-    const startNewGame = React.useCallback(async () => {
+    const wrongLetters = guessedLetters.filter(letter => !word.includes(letter));
+    const isWordGuessed = word && word.split('').every(letter => guessedLetters.includes(letter));
+
+    const fetchNewWord = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        setFeedback(null);
         try {
-            const data = await getGameData(level, useModel, user.username);
-            setWord(data.word);
+            if (!token) throw new Error("Kein Authentifizierungstoken gefunden.");
+            const data = await getWord(user.level || 'a1', useModel, token);
+            setWord(data.word.toLowerCase());
+            setWordType(data.type); // 'type' statt 'wordType'
             setGuessedLetters([]);
-            setMistakes(0);
-            setGameOver(false);
-            setGameWon(false);
-            setHint(null);
-            setProactiveFeedback('');
-            setMessage('');
-            setStartTime(new Date());
-        } catch (error) {
-            console.error('Error starting new game:', error);
-            setMessage('Fehler beim Starten des Spiels.');
+            setGameStatus('playing');
+        } catch (err: any) {
+            setError(err.message || 'Fehler beim Laden eines neuen Wortes.');
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
-    }, [level, useModel, user.username]);
+    }, [user.level, useModel, token]);
 
-    const handleGuess = async (letter: string) => {
-        if (gameOver || guessedLetters.includes(letter)) {
+    useEffect(() => {
+        if (initialWord) {
+            setWord(initialWord.word.toLowerCase());
+            setWordType(initialWord.wordType);
+            setGuessedLetters([]);
+            setGameStatus('playing');
+        } else {
+            fetchNewWord();
+        }
+    }, [initialWord, fetchNewWord]);
+
+    const handleGameEnd = useCallback(async (won: boolean) => {
+        if (!token) return;
+        try {
+            await logGame(word, wordType, won, wrongLetters.length, token);
+            const feedbackData = await getFeedback(token);
+            setFeedback(feedbackData.feedback);
+        } catch (error) {
+            console.error("Fehler beim Loggen des Spiels oder beim Holen des Feedbacks:", error);
+        }
+        if (onGameEnd) onGameEnd(won);
+    }, [word, wordType, wrongLetters.length, token, onGameEnd]);
+
+
+    useEffect(() => {
+        if (gameStatus === 'playing') {
+             if (isWordGuessed) {
+                setGameStatus('won');
+                handleGameEnd(true);
+            } else if (wrongLetters.length >= MAX_WRONG_GUESSES) {
+                setGameStatus('lost');
+                handleGameEnd(false);
+            }
+        }
+    }, [guessedLetters, gameStatus, isWordGuessed, wrongLetters.length, handleGameEnd]);
+
+
+    const handleGuess = useCallback((letter: string) => {
+        if (gameStatus !== 'playing' || guessedLetters.includes(letter)) {
             return;
         }
-
-        const normalizedLetter = letter.toLowerCase();
-        const isCorrect = word.includes(normalizedLetter);
-
-        setGuessedLetters(prev => [...prev, normalizedLetter]);
-
-        if (!isCorrect) {
-            setMistakes(prev => prev + 1);
-            setProactiveFeedback('Leider falsch!');
-        } else {
-            setProactiveFeedback('Richtig!');
-        }
-
-        const newMistakes = isCorrect ? mistakes : mistakes + 1;
-        const newGuessedLetters = [...guessedLetters, normalizedLetter];
-
-        if (newMistakes >= 6) {
-            setGameOver(true);
-            setGameWon(false);
-            setMessage('Verloren! Das Wort war: ' + word);
-            const gameResult = await apiPostGameResult(user.username, word, newMistakes, false);
-            setProactiveFeedback(gameResult.proactive_feedback);
-        } else if (word.split('').every(l => newGuessedLetters.includes(l))) {
-            setGameOver(true);
-            setGameWon(true);
-            setMessage('Gewonnen! Du hast das Wort erraten!');
-            const gameResult = await apiPostGameResult(user.username, word, newMistakes, true);
-            setProactiveFeedback(gameResult.proactive_feedback);
-        }
-    };
-
-    const getHint = async () => {
-        if (!word || gameOver) return;
-        try {
-            const response = await apiGetHint(word);
-            setHint(response.hint);
-        } catch (error) {
-            console.error('Error getting hint:', error);
-            setMessage('Hinweis konnte nicht geladen werden.');
-        }
-    };
+        setGuessedLetters(prev => [...prev, letter]);
+    }, [gameStatus, guessedLetters]);
     
     useEffect(() => {
-        startNewGame();
-    }, [startNewGame]);
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const key = event.key.toLowerCase();
+            if (/^[a-zäöü]$/.test(key)) {
+                handleGuess(key);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleGuess]);
 
-    const maskedWord = word.split('').map(letter => (guessedLetters.includes(letter.toLowerCase()) || letter === ' ' ? letter : '_')).join(' ');
+    const displayWord = word.split('').map(letter => (guessedLetters.includes(letter) ? letter : '_')).join(' ');
 
-    const keyboard = [
-        'QWERTYUIOP'.split(''),
-        'ASDFGHJKLÖÄ'.split(''),
-        'ZXCVBNMẞÜ'.split('')
-    ];
+    if (loading) return <p>Lade Spiel...</p>;
+    if (error) return <p className="error-message">{error}</p>;
 
     return (
         <div className="hangman-container">
-            <div className="game-info">
-                <p>Viel Erfolg, {user.username}!</p>
-                <p>Fehler: {mistakes} / 6</p>
-            </div>
-            <div className="word-display">{maskedWord}</div>
-            <div className="keyboard">
-                {keyboard.map((row, rowIndex) => (
-                    <div key={rowIndex} className="keyboard-row">
-                        {row.map(char => (
-                            <button
-                                key={char}
-                                onClick={() => handleGuess(char)}
-                                disabled={gameOver || guessedLetters.includes(char.toLowerCase())}
-                                className={guessedLetters.includes(char.toLowerCase()) ? 'guessed' : ''}
-                            >
-                                {char}
-                            </button>
-                        ))}
+            {gameStatus === 'won' && <div className="game-feedback success">Super, du hast es geschafft! 🎉</div>}
+            {gameStatus === 'lost' && (
+                <div className="game-feedback error">
+                    Nicht ganz! Das richtige Wort war: <strong>{word.toUpperCase()}</strong>. Nächstes Mal klappt's!
+                </div>
+            )}
+            
+            <div className="hangman-drawing">{HANGMAN_PICS[wrongLetters.length]}</div>
+
+            {feedback && <div className="game-feedback info">{feedback}</div>}
+
+            {!isPlacementTest && (
+                <div className="game-controls">
+                    <button onClick={fetchNewWord} className="next-word-btn">
+                        Nächstes Wort
+                    </button>
+                    <div className="ki-toggle">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={useModel}
+                                onChange={() => setUseModel(!useModel)}
+                            />
+                            KI-Trainingsmodus
+                        </label>
                     </div>
-                ))}
+                </div>
+            )}
+            
+            <div className="hangman-word">{displayWord}</div>
+            <p>Kategorie: {wordType}</p>
+            <p>Fehlversuche: {wrongLetters.length} / {MAX_WRONG_GUESSES}</p>
+
+            <div className="keyboard">
+                {'abcdefghijklmnopqrstuvwxyzäöü'.split('').map((letter) => {
+                    const isGuessed = guessedLetters.includes(letter);
+                    const isCorrect = isGuessed && word.includes(letter);
+                    const isIncorrect = isGuessed && !word.includes(letter);
+
+                    let buttonClass = '';
+                    if (isCorrect) buttonClass = 'guessed correct';
+                    if (isIncorrect) buttonClass = 'guessed incorrect';
+
+                    return (
+                        <button
+                            key={letter}
+                            onClick={() => handleGuess(letter)}
+                            disabled={isGuessed || gameStatus !== 'playing'}
+                            className={buttonClass}
+                        >
+                            {letter}
+                        </button>
+                    );
+                })}
             </div>
-            <div className="game-controls">
-                <button onClick={startNewGame}>Neues Spiel</button>
-                <button onClick={getHint} disabled={!word || gameOver || !!hint}>Hinweis</button>
-            </div>
-            {message && <p className="message">{message}</p>}
-            {hint && <p className="hint">Hinweis: {hint}</p>}
-            {proactiveFeedback && <p className="proactive-feedback">{proactiveFeedback}</p>}
+
+            {!isPlacementTest && (gameStatus === 'won' || gameStatus === 'lost') && (
+                <button onClick={fetchNewWord} className="next-word-btn">Nächstes Wort</button>
+            )}
         </div>
     );
 };

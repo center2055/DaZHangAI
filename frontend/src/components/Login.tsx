@@ -4,7 +4,7 @@ import { User } from '../types';
 import './Login.css';
 
 interface LoginProps {
-  onLoginSuccess: (user: User) => void;
+  onLoginSuccess: (user: User, token: string) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
@@ -15,13 +15,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    const result = await login(username, password);
-
-    if (result.success && result.user) {
-      onLoginSuccess(result.user);
-    } else {
-      setError(result.message || 'Login fehlgeschlagen.');
+    try {
+      const data = await login(username, password);
+      onLoginSuccess(data.user, data.token);
+    } catch (err: any) {
+      setError(err.message || 'Ein unerwarteter Fehler ist aufgetreten.');
     }
   };
 

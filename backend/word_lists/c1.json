@@ -1,0 +1,44 @@
+{
+    "words": [
+        {
+            "word": "anhaben",
+            "type": "Verb",
+            "category": "Person"
+        },
+        {
+            "word": "gebieten",
+            "type": "Verb",
+            "category": "Person"
+        },
+        {
+            "word": "preisen",
+            "type": "Verb",
+            "category": "Person"
+        },
+        {
+            "word": "schreiten",
+            "type": "Verb",
+            "category": "Alltag"
+        },
+        {
+            "word": "der Kocher",
+            "type": "Nomen",
+            "category": "Wohnen"
+        },
+        {
+            "word": "anschlagen",
+            "type": "Verb",
+            "category": "Freizeit"
+        },
+        {
+            "word": "bahnen",
+            "type": "Verb",
+            "category": "Reisen"
+        },
+        {
+            "word": "sich regen",
+            "type": "Verb",
+            "category": "Umwelt"
+        }
+    ]
+} 

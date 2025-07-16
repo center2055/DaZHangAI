@@ -2,35 +2,37 @@ import { User } from './types';
 
 const API_BASE_URL = '/api/v2'; // Changed to relative path
 
-export const login = async (username: string, password: string): Promise<{ success: boolean; user?: User; message?: string }> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/login`, {
+export interface LoginResponse {
+  message: string;
+  user: User;
+  token: string;
+}
+
+export const login = async (username: string, password: string): Promise<LoginResponse> => {
+  const response = await fetch(`${API_BASE_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
+
     const data = await response.json();
+
     if (!response.ok) {
-      return { success: false, message: data.message || 'Login fehlgeschlagen' };
+      throw new Error(data.message || 'Login fehlgeschlagen');
     }
+    
     return data;
-  } catch (error) {
-    return { success: false, message: 'Netzwerk- oder Serverfehler' };
-  }
 };
 
-export const register = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
-  try {
+export const register = async (username: string, password: string, age: string, motherTongue: string): Promise<{success: boolean, message?: string}> => {
     const response = await fetch(`${API_BASE_URL}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password, age, motherTongue })
     });
-    const data = await response.json();
-    return { success: response.ok, ...data };
-  } catch (error) {
-    return { success: false, message: 'Netzwerkfehler' };
-  }
+    return response.json();
 };
 
 export const logout = async (username: string) => {
@@ -43,19 +45,44 @@ export const logout = async (username: string) => {
     });
 
     if (!response.ok) {
-        // Even if logout fails on the server, we might want to proceed on the client.
-        // For now, we'll log the error but not throw, allowing the client to clear session state regardless.
-        console.error('Logout failed on server');
+      // Even if logout fails on the server, we might want to proceed on the client.
+      // For now, we'll log the error but not throw, allowing the client to clear session state regardless.
+      console.error('Logout failed on server');
     }
     
     // Clear client-side user data
     localStorage.removeItem('user');
+    localStorage.removeItem('token'); // Auch das Token entfernen
 }; 
 
-export const fetchStudentsData = async () => {
-    const response = await fetch(`${API_BASE_URL}/students_data`);
+export const deleteStudent = async (username: string, token: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/user/${username}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            return { success: false, message: data.message || 'Löschen fehlgeschlagen.' };
+        }
+        return { success: true, message: data.message };
+    } catch (error) {
+        return { success: false, message: 'Netzwerk- oder Serverfehler.' };
+    }
+};
+
+export const fetchStudentsData = async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/students_data`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
     if (!response.ok) {
-        throw new Error('Schülerdaten konnten nicht geladen werden');
+        // Bei 401 oder 403 (ungültiges Token) könnte man hier eine spezielle Fehlerbehandlung einbauen, z.B. automatisches Ausloggen
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Schülerdaten konnten nicht geladen werden');
     }
     return response.json();
 };
