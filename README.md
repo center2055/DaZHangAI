@@ -129,6 +129,12 @@ Die Anwendung wird automatisch in Ihrem Browser unter `http://localhost:3000` ge
 - Dieses Konto ist rein für Demonstrationszwecke. Es dient zur Ansicht des Lehrer-Dashboards und ist nicht zum Spielen gedacht.
 - Beim Push auf GitHub soll ausschließlich der Benutzer `Lehrer` bestehen bleiben; weitere Testkonten werden entfernt.
 
+### Windows-Release (EXE)
+
+- Eine vorkonfigurierte, eigenständige EXE wird als Release bereitgestellt (BWKI Demo Version 1.0).
+- Doppelklick auf `DaZHangAI.exe` startet einen lokalen Server und öffnet den Browser automatisch.
+- Die App verwendet im Paket eine eigene SQLite-Datenbank unter Windows: `%LOCALAPPDATA%/DaZHangAI/database.db`. Die Entwicklungsdatenbank unter `backend/database.db` bleibt davon unberührt.
+
 ## Deployment
 
 To deploy this application to a production environment:
