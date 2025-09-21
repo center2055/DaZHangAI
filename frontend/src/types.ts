@@ -2,8 +2,8 @@ export interface User {
     username: string;
     role: 'student' | 'teacher';
     level?: string | null;
-    age?: number;
-    motherTongue?: string;
+    age?: number | null;
+    motherTongue?: string | null;
 }
 
 export interface Word {

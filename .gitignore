@@ -13,4 +13,16 @@ user_profiles.json
 
 # Python cache
 /backend/__pycache__/
-/backend/venv/ 
+/backend/venv/
+
+# Local SQLite databases
+/backend/*.db
+/backend/instance/
+
+# PyInstaller build artifacts
+/backend/build/
+/backend/dist/
+/backend/*.spec
+
+# Frontend build output
+/frontend/build/ 

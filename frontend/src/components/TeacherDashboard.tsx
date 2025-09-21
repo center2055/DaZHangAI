@@ -28,28 +28,37 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token }) => {
     const [students, setStudents] = useState<StudentData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [selectedStudentUsername, setSelectedStudentUsername] = useState<string | null>(null);
 
-    // Memoized chart data to prevent re-calculation on every render
+    const selectedStudent = useMemo(() => {
+        if (!selectedStudentUsername) {
+            return null;
+        }
+        return students.find((student) => student.username === selectedStudentUsername) ?? null;
+    }, [students, selectedStudentUsername]);
+
     const chartData = useMemo(() => {
-        if (!students.length) {
+        const dataSource = selectedStudentUsername
+            ? students.filter((student) => student.username === selectedStudentUsername)
+            : students;
+
+        if (!dataSource.length) {
             return { barData: null, pieData: null };
         }
 
-        // Bar Chart: Failed words per student
         const barData = {
-            labels: students.map(s => s.username),
+            labels: dataSource.map((student) => student.username),
             datasets: [
                 {
                     label: 'Anzahl falscher Wörter',
-                    data: students.map(s => s.progress.failed_words),
+                    data: dataSource.map((student) => student.progress.failed_words),
                     backgroundColor: 'rgba(255, 99, 132, 0.5)',
                 },
             ],
         };
 
-        // Pie Chart: Common problem word types across all students
         const allProblemTypes: Record<string, number> = {};
-        students.forEach(student => {
+        dataSource.forEach((student) => {
             Object.entries(student.progress.failed_word_types).forEach(([type, count]) => {
                 allProblemTypes[type] = (allProblemTypes[type] || 0) + count;
             });
@@ -83,17 +92,18 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token }) => {
         };
 
         return { barData, pieData };
-    }, [students]);
+    }, [students, selectedStudentUsername]);
 
     const loadData = useCallback(async () => {
         if (!token) {
-            setError("Authentifizierungstoken nicht gefunden.");
+            setError('Authentifizierungstoken nicht gefunden.');
             setLoading(false);
             return;
         }
         try {
             const data = await fetchStudentsData(token);
             setStudents(data);
+            setError('');
         } catch (err: any) {
             setError(err.message || 'Daten konnten nicht geladen werden.');
         } finally {
@@ -101,134 +111,206 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token }) => {
         }
     }, [token]);
 
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    useEffect(() => {
+        if (selectedStudentUsername && !students.some((student) => student.username === selectedStudentUsername)) {
+            setSelectedStudentUsername(null);
+        }
+    }, [students, selectedStudentUsername]);
+
+    useEffect(() => {
+        setSelectedStudentUsername(null);
+    }, [user?.username]);
+
+    const handleSelectStudent = (username: string) => {
+        setSelectedStudentUsername(username);
+        setError('');
+    };
+
+    const handleBackToSelection = () => {
+        setSelectedStudentUsername(null);
+    };
+
     const handleDifficultyChange = useCallback(async (username: string, newModifier: number) => {
         if (!token) {
-            setError("Authentifizierungstoken nicht gefunden.");
+            setError('Authentifizierungstoken nicht gefunden.');
             return;
         }
         try {
-            // Optimistically update the UI
-            setStudents(prev => prev.map(s => s.username === username ? { ...s, progress: { ...s.progress, difficulty_modifier: newModifier } } : s));
+            setStudents((prev) => prev.map((student) =>
+                student.username === username
+                    ? { ...student, progress: { ...student.progress, difficulty_modifier: newModifier } }
+                    : student
+            ));
 
             const response = await fetch(`/api/v2/student/${username}/difficulty`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ difficulty_modifier: newModifier })
+                body: JSON.stringify({ difficulty_modifier: newModifier }),
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Fehler beim Aktualisieren der Schwierigkeit.');
             }
-            
-            // Optional: Show a success message
-            console.log(`Schwierigkeit für ${username} erfolgreich aktualisiert.`);
 
+            console.log(`Schwierigkeit für ${username} erfolgreich aktualisiert.`);
         } catch (err: any) {
-            setError(err.message);
-            // Revert the optimistic update on error
+            setError(err.message || 'Fehler beim Aktualisieren der Schwierigkeit.');
             loadData();
         }
     }, [token, loadData]);
 
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
-
     const handleDeleteStudent = async (username: string) => {
         if (window.confirm(`Möchten Sie den Schüler "${username}" wirklich endgültig löschen?`)) {
             if (!token) {
-                setError("Authentifizierungstoken nicht gefunden.");
+                setError('Authentifizierungstoken nicht gefunden.');
                 return;
             }
             const result = await deleteStudent(username, token);
             if (result.success) {
-                setStudents(prevStudents => prevStudents.filter(s => s.username !== username));
+                setStudents((prevStudents) => prevStudents.filter((student) => student.username !== username));
+                if (selectedStudentUsername === username) {
+                    setSelectedStudentUsername(null);
+                }
             } else {
                 setError(result.message || 'Ein Fehler ist aufgetreten.');
-                // Optional: error message could be cleared after a few seconds
             }
         }
     };
 
-    if (loading) return <p>Lade Schülerdaten...</p>;
-    if (error) return <p className="error-message">{error}</p>;
+    if (loading) {
+        return <p>Lade Schülerdaten...</p>;
+    }
+
+    if (error) {
+        return <p className="error-message">{error}</p>;
+    }
 
     return (
         <div className="dashboard-container">
-            <h2>Lehrer-Dashboard</h2>
-
-            <div className="charts-container">
-                {chartData.barData && (
-                    <div className="chart-wrapper">
-                        <h3>Fehlversuche pro Schüler</h3>
-                        <Bar data={chartData.barData} />
+            {!selectedStudent ? (
+                <>
+                    <h2>Schüler auswählen</h2>
+                    {students.length ? (
+                        <>
+                            <p className="selector-intro">Bitte wählen Sie den Schüler, den Sie sich ansehen möchten, um die größten Lernfortschritte zu vergleichen.</p>
+                            <div className="student-selector-grid">
+                                {students.map((student) => (
+                                    <div
+                                        key={student.username}
+                                        className="student-card"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => handleSelectStudent(student.username)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                handleSelectStudent(student.username);
+                                            }
+                                        }}
+                                    >
+                                        <h3>{student.username}</h3>
+                                        <p><strong>Alter:</strong> {student.age ?? 'k.A.'}</p>
+                                        <p><strong>Muttersprache:</strong> {student.motherTongue ?? 'k.A.'}</p>
+                                        <p><strong>Letzte Schwierigkeit:</strong> {student.progress.difficulty_modifier.toFixed(1)}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <p className="selector-intro">Es sind derzeit keine Schüler verknüpft.</p>
+                    )}
+                </>
+            ) : (
+                <>
+                    <h2>Lehrer-Dashboard</h2>
+                    <div className="dashboard-header-row">
+                        <button className="back-button" onClick={handleBackToSelection}>
+                            Zur Schülerauswahl
+                        </button>
+                        <div className="selected-student-pill">
+                            <span>Ausgewählter Schüler:</span>
+                            <span className="pill-name">{selectedStudent.username}</span>
+                        </div>
                     </div>
-                )}
-                {chartData.pieData && Object.keys(chartData.pieData.labels).length > 0 && (
-                     <div className="chart-wrapper">
-                        <h3>Häufigste Problem-Wortarten</h3>
-                        <Pie data={chartData.pieData} />
-                    </div>
-                )}
-            </div>
 
-            <table className="students-table">
-                <thead>
-                    <tr>
-                        <th>Schüler</th>
-                        <th>Alter</th>
-                        <th>Muttersprache</th>
-                        <th>Anzahl Fehler</th>
-                        <th>Problembuchstaben</th>
-                        <th>Problem-Wortarten</th>
-                        <th>Schwierigkeit (Leichter/Schwerer)</th>
-                        <th>Aktionen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {students.map(student => (
-                        <tr key={student.username}>
-                            <td>{student.username}</td>
-                            <td>{student.age || 'k.A.'}</td>
-                            <td>{student.motherTongue || 'k.A.'}</td>
-                            <td>{student.progress.failed_words || 0}</td>
-                            <td>{student.progress.problem_letters?.join(', ') || 'Keine'}</td>
-                            <td>
-                                {Object.entries(student.progress.failed_word_types || {})
-                                    .map(([type, count]) => `${type}: ${count}`)
-                                    .join(', ') || 'Keine'}
-                            </td>
-                            <td>
-                                <div className="difficulty-slider">
-                                    <input
-                                        type="range"
-                                        min="0.5"
-                                        max="2.0"
-                                        step="0.1"
-                                        value={student.progress.difficulty_modifier}
-                                        onChange={(e) => handleDifficultyChange(student.username, parseFloat(e.target.value))}
-                                    />
-                                    <span>{student.progress.difficulty_modifier.toFixed(1)}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <button
-                                    onClick={() => handleDeleteStudent(student.username)}
-                                    className="delete-button"
-                                >
-                                    Löschen
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+                    <div className="charts-container">
+                        {chartData.barData && (
+                            <div className="chart-wrapper">
+                                <h3>Fehlversuche</h3>
+                                <Bar data={chartData.barData} />
+                            </div>
+                        )}
+                        {chartData.pieData && chartData.pieData.labels.length > 0 && (
+                            <div className="chart-wrapper">
+                                <h3>Größte Problem-Wortarten</h3>
+                                <Pie data={chartData.pieData} />
+                            </div>
+                        )}
+                    </div>
+
+                    {selectedStudent && (
+                        <table className="students-table">
+                            <thead>
+                                <tr>
+                                    <th>Schüler</th>
+                                    <th>Alter</th>
+                                    <th>Muttersprache</th>
+                                    <th>Anzahl Fehler</th>
+                                    <th>Problembuchstaben</th>
+                                    <th>Problem-Wortarten</th>
+                                    <th>Schwierigkeit (Maß leichter/schwerer)</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr key={selectedStudent.username}>
+                                    <td>{selectedStudent.username}</td>
+                                    <td>{selectedStudent.age ?? 'k.A.'}</td>
+                                    <td>{selectedStudent.motherTongue ?? 'k.A.'}</td>
+                                    <td>{selectedStudent.progress.failed_words ?? 0}</td>
+                                    <td>{selectedStudent.progress.problem_letters?.join(', ') || 'Keine'}</td>
+                                    <td>
+                                        {Object.entries(selectedStudent.progress.failed_word_types || {})
+                                            .map(([type, count]) => `${type}: ${count}`)
+                                            .join(', ') || 'Keine'}
+                                    </td>
+                                    <td>
+                                        <div className="difficulty-slider">
+                                            <input
+                                                type="range"
+                                                min="0.5"
+                                                max="2.0"
+                                                step="0.1"
+                                                value={selectedStudent.progress.difficulty_modifier}
+                                                onChange={(event) => handleDifficultyChange(selectedStudent.username, parseFloat(event.target.value))}
+                                            />
+                                            <span>{selectedStudent.progress.difficulty_modifier.toFixed(1)}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button
+                                            onClick={() => handleDeleteStudent(selectedStudent.username)}
+                                            className="delete-button"
+                                        >
+                                            Löschen
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    )}
+                </>
+            )}
         </div>
     );
 };
 
-export default TeacherDashboard; 
+export default TeacherDashboard;

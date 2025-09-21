@@ -5,6 +5,9 @@ import './Hangman.css';
 
 const MAX_WRONG_GUESSES = 6;
 
+const isEszett = (letter: string) => letter === 'ß';
+const formatLetter = (letter: string) => (isEszett(letter) ? letter : letter.toUpperCase());
+const formatWord = (word: string) => word.split('').map(formatLetter).join('');
 interface HangmanIllustrationProps {
     wrongCount: number;
 }
@@ -187,7 +190,7 @@ const Hangman: React.FC<HangmanProps> = ({ user, token, initialWord, onGameEnd, 
 
     const displayWordLetters = word.split('').map((letter, idx) => {
         const revealed = guessedLetters.includes(letter);
-        const displayChar = letter === 'ß' ? 'ß' : letter.toUpperCase();
+        const displayChar = formatLetter(letter);
         return (
             <span key={idx} className={`letter${revealed ? ' revealed' : ''}`}>
                 {revealed ? displayChar : '_'}
@@ -206,7 +209,7 @@ const Hangman: React.FC<HangmanProps> = ({ user, token, initialWord, onGameEnd, 
             if (!guessedLetters.includes(revealed_letter)) {
                 setGuessedLetters(prev => [...prev, revealed_letter]);
             }
-            setServerHint(`Buchstabe aufgedeckt: ${revealed_letter.toUpperCase()}`);
+            setServerHint(`Buchstabe aufgedeckt: ${formatLetter(revealed_letter)}`);
         } catch (e) {
             setServerHint('Kein Tipp verfügbar.');
         }
@@ -220,7 +223,7 @@ const Hangman: React.FC<HangmanProps> = ({ user, token, initialWord, onGameEnd, 
             {gameStatus === 'won' && <div className="game-feedback success">Super, du hast es geschafft! 🎉</div>}
             {gameStatus === 'lost' && (
                 <div className="game-feedback error">
-                    Nicht ganz! Das richtige Wort war: <strong>{word.toUpperCase()}</strong>. Nächstes Mal klappt's!
+                    Nicht ganz! Das richtige Wort war: <strong>{formatWord(word)}</strong>. Nächstes Mal klappt's!
                 </div>
             )}
             
@@ -233,13 +236,16 @@ const Hangman: React.FC<HangmanProps> = ({ user, token, initialWord, onGameEnd, 
                         Nächstes Wort
                     </button>
                     <div className="ki-toggle">
-                        <label>
+                        <label className={`toggle ${useModel ? 'active' : ''}`}>
                             <input
                                 type="checkbox"
                                 checked={useModel}
                                 onChange={() => setUseModel(!useModel)}
                             />
-                            KI-Trainingsmodus
+                            <span className="toggle-track" aria-hidden="true">
+                                <span className="toggle-thumb"></span>
+                            </span>
+                            <span className="toggle-text">KI-Trainingsmodus</span>
                         </label>
                     </div>
                 </div>

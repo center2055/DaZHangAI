@@ -18,7 +18,7 @@
   margin: 2rem 0;
   font-family: 'Courier New', Courier, monospace;
   font-weight: bold;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .keyboard {
@@ -49,7 +49,7 @@
     color: var(--key-text-color);
     transition: background-color 0.15s, transform 0.1s;
     min-width: clamp(34px, 4vw, 48px);
-    text-transform: uppercase;
+    text-transform: none;
 }
 
 /* Keep ß as ß (avoid uppercase mapping to SS) */
@@ -279,7 +279,7 @@
   height: clamp(26px, 4vh, 40px);
   font-size: clamp(1rem, 2.2vh, 1.6rem);
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   border-bottom: 3px solid var(--border-color);
   color: var(--text-color);
 }
@@ -462,3 +462,76 @@ body.dark-mode .keyboard button.guessed.incorrect {
 
 
 
+
+.ki-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.ki-toggle .toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px 6px 8px;
+  background-color: var(--background-color-light);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-weight: 600;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ki-toggle .toggle:hover {
+  border-color: var(--primary-hover-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.ki-toggle .toggle:focus-within {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.25);
+}
+
+.ki-toggle .toggle input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ki-toggle .toggle-track {
+  width: 44px;
+  height: 22px;
+  border-radius: 999px;
+  background-color: var(--border-color);
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.ki-toggle .toggle-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--text-light-color);
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.ki-toggle .toggle.active .toggle-track {
+  background-color: var(--primary-color);
+}
+
+.ki-toggle .toggle.active .toggle-thumb {
+  transform: translateX(22px);
+  background-color: #ffffff;
+}
+
+.ki-toggle .toggle-text {
+  font-size: 0.95rem;
+  color: var(--text-color);
+}

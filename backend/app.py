@@ -1,4 +1,9 @@
 import os
+import sys
+import logging
+import socket
+import threading
+import webbrowser
 import random
 import csv
 import json
@@ -15,12 +20,25 @@ from sqlalchemy.ext.mutable import MutableDict, MutableList
 
 load_dotenv()
 
+def _is_frozen() -> bool:
+    return getattr(sys, 'frozen', False) is True
+
+def _get_data_dir() -> str:
+    # For packaged EXE: store data under user profile so it's writable and isolated
+    if _is_frozen() and os.name == 'nt':
+        base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+        data_dir = os.path.join(base, 'DaZHangAI')
+        os.makedirs(data_dir, exist_ok=True)
+        return data_dir
+    # Development: keep using backend directory
+    return os.path.dirname(os.path.abspath(__file__))
+
 app = Flask(__name__, static_folder='../frontend/build')
 # Secrets and DB
 app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'a-fallback-secret-key-for-dev')
 # Use absolute SQLite path to avoid CWD surprises
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'database.db')
+DATA_DIR = _get_data_dir()
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(DATA_DIR, 'database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Fail fast in non-development if no proper secret key is configured
@@ -51,6 +69,8 @@ class UserProfile(db.Model):
     # Hint credits economy
     hint_credits = db.Column(db.Integer, nullable=False, default=0)
     wins_since_last_hint = db.Column(db.Integer, nullable=False, default=0)
+    age = db.Column(db.Integer)
+    mother_tongue = db.Column(db.String(120))
 
 # New: Persisted game logs for statistics and analysis
 class GameLog(db.Model):
@@ -683,12 +703,16 @@ def login_v2():
         'exp': datetime.now(timezone.utc) + timedelta(hours=24)
     }, app.config['SECRET_KEY'], algorithm="HS256")
 
+    profile = user.profile
+
     return jsonify({
         'message': 'Login successful',
         'user': {
             'username': user.username,
             'role': user.role,
-            'level': user.level
+            'level': user.level,
+            'age': profile.age if profile else None,
+            'motherTongue': profile.mother_tongue if profile else None
         },
         'token': token if isinstance(token, str) else token.decode('utf-8')
     })
@@ -699,13 +723,22 @@ def register_v2():
     username = data.get('username')
     password = data.get('password')
     role = data.get('role', 'student')
+    age_raw = data.get('age')
+    mother_tongue = data.get('motherTongue')
 
     if not username or not password:
         return jsonify({'message': 'Username or password missing'}), 400
 
     if User.query.filter_by(username=username).first():
         return jsonify({'message': 'User already exists'}), 409
-    
+
+    parsed_age = None
+    if age_raw not in (None, ''):
+        try:
+            parsed_age = int(age_raw)
+        except (ValueError, TypeError):
+            parsed_age = None
+
     new_user = User(
         username=username,
         password_hash=generate_password_hash(password),
@@ -714,11 +747,15 @@ def register_v2():
     db.session.add(new_user)
     db.session.commit()
 
-    # Erstelle ein leeres Profil für den neuen Benutzer
-    new_profile = UserProfile(user_id=new_user.id)
+    # Erstelle ein Profil für den neuen Benutzer
+    new_profile = UserProfile(
+        user_id=new_user.id,
+        age=parsed_age,
+        mother_tongue=mother_tongue or None
+    )
     db.session.add(new_profile)
     db.session.commit()
-    
+
     return jsonify({'message': 'User registered successfully'}), 201
 
 
@@ -732,6 +769,8 @@ def get_students_data_v2(current_user):
         student_data.append({
             'username': student.username,
             'level': student.level,
+            'age': profile.age if profile else None,
+            'motherTongue': profile.mother_tongue if profile else None,
             'progress': {
                 'seen_words': len(profile.seen_words) if profile else 0,
                 'failed_words': len(profile.failed_words) if profile else 0,
@@ -853,10 +892,19 @@ def init_db():
             with db.engine.connect() as connection:
                 if 'difficulty_modifier' not in columns:
                     connection.execute(text('ALTER TABLE user_profile ADD COLUMN difficulty_modifier FLOAT NOT NULL DEFAULT 1.0;'))
+                    columns.add('difficulty_modifier')
                 if 'hint_credits' not in columns:
                     connection.execute(text('ALTER TABLE user_profile ADD COLUMN hint_credits INTEGER NOT NULL DEFAULT 0;'))
+                    columns.add('hint_credits')
                 if 'wins_since_last_hint' not in columns:
                     connection.execute(text('ALTER TABLE user_profile ADD COLUMN wins_since_last_hint INTEGER NOT NULL DEFAULT 0;'))
+                    columns.add('wins_since_last_hint')
+                if 'age' not in columns:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN age INTEGER;'))
+                    columns.add('age')
+                if 'mother_tongue' not in columns:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN mother_tongue VARCHAR(120);'))
+                    columns.add('mother_tongue')
         except Exception:
             # Best-effort: never block app startup because of migration issues
             pass
@@ -884,5 +932,53 @@ def init_db():
 # Ensure DB is initialized when module is imported (e.g., via `flask run`)
 init_db()
 
+def _pick_port(preferred: int = 5000) -> int:
+    def is_free(p: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind(('127.0.0.1', p))
+                return True
+            except OSError:
+                return False
+    if is_free(preferred):
+        return preferred
+    for p in range(5001, 5011):
+        if is_free(p):
+            return p
+    return preferred
+
+def _configure_logging():
+    runtime_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+    log_path = os.path.join(runtime_dir, 'dazhangai.log')
+    try:
+        logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+        logging.info('Logging initialized at %s', log_path)
+    except Exception:
+        logging.basicConfig(level=logging.INFO)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    _configure_logging()
+    host = '127.0.0.1'
+    try:
+        env_port = int(os.environ.get('PORT')) if os.environ.get('PORT') else None
+    except Exception:
+        env_port = None
+    port = env_port or _pick_port(5000)
+    url = f'http://{host}:{port}/'
+    logging.info('Starting DaZHangAI at %s', url)
+    # Open browser shortly after start; robust across packaging
+    def _open():
+        try:
+            if os.name == 'nt':
+                try:
+                    os.startfile(url)  # type: ignore[attr-defined]
+                    return
+                except Exception:
+                    pass
+            webbrowser.open_new(url)
+        except Exception:
+            logging.warning('Auto-open browser failed', exc_info=True)
+
+    threading.Timer(1.0, _open).start()
+    app.run(host=host, port=port, debug=False)
