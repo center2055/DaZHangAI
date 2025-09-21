@@ -121,6 +121,28 @@ Der Server läuft standardmäßig auf `http://127.0.0.1:5000`.
 
 Die Anwendung wird automatisch in Ihrem Browser unter `http://localhost:3000` geöffnet.
 
+### Demo-Hinweis (BWKI 2025)
+
+- Für Jury-Demos existiert ein Lehrer-Konto:
+  - Benutzer: `Lehrer`
+  - Passwort: `BWKI2025!`
+- Dieses Konto ist rein für Demonstrationszwecke. Es dient zur Ansicht des Lehrer-Dashboards und ist nicht zum Spielen gedacht.
+- Beim Push auf GitHub soll ausschließlich der Benutzer `Lehrer` bestehen bleiben; weitere Testkonten werden entfernt.
+
+## Deployment
+
+To deploy this application to a production environment:
+
+1. **Backend**: Use Gunicorn as the WSGI server. Install it with `pip install gunicorn` and run `gunicorn -w 4 -b 0.0.0.0:8000 app:app`.
+
+2. **Frontend**: Build the React app with `npm run build` in the frontend directory. Serve the build folder statically (e.g., via NGINX).
+
+3. **Database**: For production, consider migrating from SQLite to PostgreSQL for better scalability.
+
+4. **Environment**: Set up environment variables in a .env file or server config, especially for SECRET_KEY.
+
+5. **Docker**: (Optional) Create a Dockerfile for containerization.
+
 ---
 
 Viel Spaß beim Lernen und Lehren mit DaZHangAI! 

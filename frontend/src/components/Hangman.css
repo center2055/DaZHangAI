@@ -1,10 +1,11 @@
 .hangman-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 2rem auto;
-  padding: 2rem;
-  max-width: 800px;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  justify-items: center;
+  row-gap: 0.5rem;
+  margin: 1.25rem auto;
+  padding: clamp(8px, 1.6vw, 16px);
+  max-width: 920px;
   background-color: var(--background-color-light);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -24,9 +25,9 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 6px;
+    gap: clamp(4px, 0.8vw, 6px);
     max-width: 800px; /* Verhindert, dass die Tastatur zu breit wird */
-    margin: 20px auto;
+    margin: clamp(8px, 1.4vw, 20px) auto;
 }
 
 .keyboard-row {
@@ -37,8 +38,8 @@
 
 .keyboard button {
     margin: 0; /* Margin wird jetzt durch gap gesteuert */
-    padding: 12px;
-    font-size: 1.3rem;
+    padding: clamp(6px, 1.2vh, 12px);
+    font-size: clamp(0.95rem, 1.8vh, 1.2rem);
     font-weight: bold;
     cursor: pointer;
     border-radius: 8px;
@@ -47,8 +48,13 @@
     background-color: var(--key-bg-color);
     color: var(--key-text-color);
     transition: background-color 0.15s, transform 0.1s;
-    min-width: 48px;
+    min-width: clamp(34px, 4vw, 48px);
     text-transform: uppercase;
+}
+
+/* Keep ß as ß (avoid uppercase mapping to SS) */
+.keyboard button[data-letter="ß"] {
+    text-transform: none;
 }
 
 .keyboard button:hover:not(:disabled) {
@@ -64,7 +70,6 @@
 .keyboard button.guessed {
     background-color: var(--key-guessed-bg-color);
     color: var(--key-guessed-text-color);
-    text-decoration: line-through;
 }
 
 .keyboard button:disabled {
@@ -81,13 +86,13 @@
 }
 
 .game-over-lost {
-  background-color: #ffebee; /* Light red */
-  color: var(--incorrect-color);
+  background-color: var(--error-bg-color);
+  color: var(--error-text-color);
 }
 
 .game-over-won {
-  background-color: #e8f5e9; /* Light green */
-  color: var(--correct-color);
+  background-color: var(--success-bg-color);
+  color: var(--success-text-color);
 }
 
 .game-controls {
@@ -101,7 +106,7 @@
 
 .wrong-guesses {
   font-size: 1.1rem;
-  color: #777;
+  color: var(--text-color-secondary);
   font-weight: bold;
 }
 
@@ -129,19 +134,51 @@
 .hint-display {
   margin-top: 1rem;
   padding: 0.75rem;
-  background-color: #eef1f4;
+  background-color: var(--secondary-color);
   border-radius: var(--border-radius);
   color: var(--text-color);
   font-style: italic;
+  border: 1px solid var(--border-color);
 } 
 
-.hangman-drawing {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 1.2rem;
-    white-space: pre;
-    margin-bottom: 1rem;
-    line-height: 1.1;
-    color: var(--text-color-secondary);
+.hangman-illustration {
+    margin: 0.5rem 0 1rem 0;
+    display: flex;
+    justify-content: center;
+}
+
+.hangman-svg {
+    stroke: var(--text-color-secondary);
+    stroke-width: 3;
+    fill: none;
+    width: min(36vw, 280px);
+    height: auto;
+}
+
+.hangman-svg .gallow {
+    stroke-linecap: round;
+    opacity: 0.8;
+}
+
+.hangman-svg .rope {
+    stroke-dasharray: 4 6;
+}
+
+.hangman-svg .hangman-part {
+    stroke-linecap: round;
+    opacity: 0;
+    transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.hangman-svg .hangman-part.visible {
+    opacity: 1;
+    transform-origin: center;
+    animation: draw-in 260ms ease-out;
+}
+
+@keyframes draw-in {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 .game-feedback {
@@ -151,6 +188,24 @@
     font-size: 1.2rem;
     font-weight: bold;
     animation: fadeIn 0.5s ease-in-out;
+}
+
+.game-feedback.success {
+    background-color: var(--success-bg-color);
+    color: var(--success-text-color);
+    border: 1px solid var(--correct-color);
+}
+
+.game-feedback.error {
+    background-color: var(--error-bg-color);
+    color: var(--error-text-color);
+    border: 1px solid var(--incorrect-color);
+}
+
+.game-feedback.info {
+    background-color: var(--info-bg-color);
+    color: var(--info-text-color);
+    border: 1px solid var(--primary-color);
 }
 
 @keyframes fadeIn {
@@ -165,25 +220,245 @@
 }
 
 .keyboard button.guessed.correct {
-    background-color: #28a745;
-    color: white;
+    background-color: var(--correct-color);
+    color: var(--background-color);
     animation: flash-green 0.5s;
 }
 
 .keyboard button.guessed.incorrect {
-    background-color: #dc3545;
-    color: white;
+    background-color: var(--incorrect-color);
+    color: var(--background-color);
     animation: flash-red 0.5s;
+    text-decoration: line-through;
+}
+
+.keyboard button.excluded {
+    background-color: var(--text-color-secondary);
+    color: var(--background-color);
+    text-decoration: line-through;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.keyboard button.excluded:hover {
+    background-color: var(--text-color-secondary);
+    transform: none;
+}
+
+.game-hints {
+    margin: 0.8rem 0;
+    padding: 0.6rem 1rem;
+    background-color: var(--info-bg-color);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 4px;
+    text-align: center;
+}
+
+.game-hints small {
+    color: var(--info-text-color);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Modern word display with per-letter animation */
+.hangman-word {
+  display: flex;
+  justify-content: center;
+  gap: clamp(0.25rem, 1vw, 0.6rem);
+  margin: 0.5rem auto 0.25rem auto;
+}
+
+
+
+.hangman-word .letter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(18px, 3.2vw, 28px);
+  height: clamp(26px, 4vh, 40px);
+  font-size: clamp(1rem, 2.2vh, 1.6rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 3px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.hangman-word .letter.revealed {
+  animation: pop-in 180ms ease-out;
+  border-bottom-color: var(--correct-color);
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.hint-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.25rem 0;
+}
+
+.server-hint {
+  color: var(--text-color-secondary);
+}
+
+/* Horizontal meta row to save vertical space */
+.word-and-hint-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.6vw, 20px);
+}
+
+
+
+.hint-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 28px);
+  flex-wrap: wrap;
+  margin: 0.25rem 0 0.5rem 0;
+}
+
+.meta-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.meta-label {
+  color: var(--text-color-secondary);
+  font-weight: 600;
+}
+
+.meta-value {
+  color: var(--text-color);
 }
 
 @keyframes flash-green {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
-    50% { transform: scale(1.1); box-shadow: 0 0 10px 5px rgba(40, 167, 69, 0.3); }
-    100% { transform: scale(1); box_shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+    0% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(80, 227, 194, 0.7); 
+    }
+    50% { 
+        transform: scale(1.1); 
+        box-shadow: 0 0 10px 5px rgba(80, 227, 194, 0.3); 
+    }
+    100% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(80, 227, 194, 0); 
+    }
 }
 
 @keyframes flash-red {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
-    50% { transform: scale(1.1); box-shadow: 0 0 10px 5px rgba(220, 53, 69, 0.3); }
-    100% { transform: scale(1); box_shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    0% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(227, 80, 80, 0.7); 
+    }
+    50% { 
+        transform: scale(1.1); 
+        box-shadow: 0 0 10px 5px rgba(227, 80, 80, 0.3); 
+    }
+    100% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(227, 80, 80, 0); 
+    }
+}
+
+/* Dark mode flash animations */
+body.dark-mode .keyboard button.guessed.correct {
+    animation: flash-green-dark 0.5s;
+}
+
+body.dark-mode .keyboard button.guessed.incorrect {
+    animation: flash-red-dark 0.5s;
+}
+
+@keyframes flash-green-dark {
+    0% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(86, 211, 100, 0.7); 
+    }
+    50% { 
+        transform: scale(1.1); 
+        box-shadow: 0 0 10px 5px rgba(86, 211, 100, 0.3); 
+    }
+    100% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(86, 211, 100, 0); 
+    }
+}
+
+@keyframes flash-red-dark {
+    0% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.7); 
+    }
+    50% { 
+        transform: scale(1.1); 
+        box-shadow: 0 0 10px 5px rgba(248, 81, 73, 0.3); 
+    }
+    100% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); 
+    }
+}
+
+.next-word-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: 2px solid var(--primary-color);
+    padding: clamp(0.5rem, 1.4vh, 0.75rem) clamp(0.8rem, 2vw, 1.5rem);
+    border-radius: var(--border-radius);
+    font-size: clamp(0.9rem, 1.8vh, 1rem);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    margin: clamp(0.5rem, 1.6vh, 1rem) 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-family: var(--font-family);
+    text-transform: none;
+    min-width: 120px;
+}
+
+.next-word-btn:hover {
+    background-color: var(--primary-hover-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.next-word-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Special styling for the "Weiter" button in placement tests */
+.hangman-container .next-word-btn {
+    animation: fadeIn 0.5s ease-in-out;
+    border: 2px solid var(--primary-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover-color));
+}
+
+.hangman-container .next-word-btn:hover {
+    background: linear-gradient(135deg, var(--primary-hover-color), var(--primary-color));
+    border-color: var(--primary-hover-color);
 } 
+
+
+
+
+
+
+

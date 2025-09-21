@@ -1,14 +1,19 @@
 {
   "words": [
     { "word": "Fahrrad", "type": "Nomen", "category": "Transport" },
-    { "word": "Wohnung", "type": "Nomen", "category": "Orte" },
-    { "word": "Küche", "type": "Nomen", "category": "Orte" },
+    { "word": "Straßenbahn", "type": "Nomen", "category": "Transport" },
+    { "word": "Wohnung", "type": "Nomen", "category": "Wohnen" },
+    { "word": "Küche", "type": "Nomen", "category": "Wohnen" },
     { "word": "Fenster", "type": "Nomen", "category": "Gegenstände" },
-    { "word": "Flughafen", "type": "Nomen", "category": "Transport" },
-    { "word": "Bahnhof", "type": "Nomen", "category": "Transport" },
-    { "word": "Reise", "type": "Nomen", "category": "Aktivitäten" },
-    { "word": "Urlaub", "type": "Nomen", "category": "Aktivitäten" },
+    { "word": "Flughafen", "type": "Nomen", "category": "Reisen" },
+    { "word": "Bahnhof", "type": "Nomen", "category": "Reisen" },
+    { "word": "Reise", "type": "Nomen", "category": "Reisen" },
+    { "word": "Urlaub", "type": "Nomen", "category": "Freizeit" },
     { "word": "Beruf", "type": "Nomen", "category": "Arbeit" },
-    { "word": "Gesundheit", "type": "Nomen", "category": "Allgemein" }
+    { "word": "Kollege", "type": "Nomen", "category": "Arbeit" },
+    { "word": "Gesundheit", "type": "Nomen", "category": "Medizin" },
+    { "word": "Arzt", "type": "Nomen", "category": "Berufe" },
+    { "word": "besuchen", "type": "Verb", "category": "Alltag" },
+    { "word": "erklären", "type": "Verb", "category": "Kommunikation" }
   ]
-} 
+}

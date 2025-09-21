@@ -67,11 +67,62 @@ def migrate_profiles():
         print("Profile erfolgreich in die Datenbank migriert.")
 
 
+def migrate_schema():
+    """Fügt neue Spalten zur bestehenden Datenbank hinzu, falls sie fehlen."""
+    print("\nStarte Schema-Migration...")
+    from sqlalchemy import inspect, text
+    from sqlalchemy.exc import OperationalError
+
+    with app.app_context():
+        inspector = inspect(db.engine)
+        
+        # Spalte 'difficulty_modifier' zur 'user_profile' Tabelle hinzufügen
+        try:
+            columns = [c['name'] for c in inspector.get_columns('user_profile')]
+            if 'difficulty_modifier' not in columns:
+                print("Füge Spalte 'difficulty_modifier' zur Tabelle 'user_profile' hinzu...")
+                with db.engine.connect() as connection:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN difficulty_modifier FLOAT NOT NULL DEFAULT 1.0;'))
+                print("Spalte 'difficulty_modifier' erfolgreich hinzugefügt.")
+            else:
+                print("Spalte 'difficulty_modifier' existiert bereits.")
+        except OperationalError as e:
+            # Dieser Fehler kann auftreten, wenn die Tabelle noch nicht existiert.
+            # db.create_all() wird sich darum kümmern.
+            print(f"Konnte Schema für 'user_profile' nicht prüfen/ändern: {e}")
+
+        # Spalte 'hint_credits' hinzufügen
+        try:
+            columns = [c['name'] for c in inspector.get_columns('user_profile')]
+            if 'hint_credits' not in columns:
+                print("Füge Spalte 'hint_credits' zur Tabelle 'user_profile' hinzu...")
+                with db.engine.connect() as connection:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN hint_credits INTEGER NOT NULL DEFAULT 0;'))
+                print("Spalte 'hint_credits' erfolgreich hinzugefügt.")
+            else:
+                print("Spalte 'hint_credits' existiert bereits.")
+        except OperationalError as e:
+            print(f"Konnte Spalte 'hint_credits' nicht hinzufügen/prüfen: {e}")
+
+        # Spalte 'wins_since_last_hint' hinzufügen
+        try:
+            columns = [c['name'] for c in inspector.get_columns('user_profile')]
+            if 'wins_since_last_hint' not in columns:
+                print("Füge Spalte 'wins_since_last_hint' zur Tabelle 'user_profile' hinzu...")
+                with db.engine.connect() as connection:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN wins_since_last_hint INTEGER NOT NULL DEFAULT 0;'))
+                print("Spalte 'wins_since_last_hint' erfolgreich hinzugefügt.")
+            else:
+                print("Spalte 'wins_since_last_hint' existiert bereits.")
+        except OperationalError as e:
+            print(f"Konnte Spalte 'wins_since_last_hint' nicht hinzufügen/prüfen: {e}")
+
 if __name__ == '__main__':
     with app.app_context():
         # Erstellt alle Tabellen, falls sie nicht existieren
         db.create_all()
     
+    migrate_schema()
     migrate_users()
     migrate_profiles()
     print("\nMigration abgeschlossen.") 

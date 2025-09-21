@@ -1,54 +1,16 @@
 {
     "words": [
-        {
-            "word": "die Fähigkeit",
-            "type": "Nomen",
-            "category": "Person"
-        },
-        {
-            "word": "gepflegt",
-            "type": "Adjektiv",
-            "category": "Person"
-        },
-        {
-            "word": "lesbisch",
-            "type": "Adjektiv",
-            "category": "Person"
-        },
-        {
-            "word": "schwul",
-            "type": "Adjektiv",
-            "category": "Person"
-        },
-        {
-            "word": "das Temperament",
-            "type": "Nomen",
-            "category": "Person"
-        },
-        {
-            "word": "träge",
-            "type": "Adjektiv",
-            "category": "Person"
-        },
-        {
-            "word": "das Wesen",
-            "type": "Nomen",
-            "category": "Person"
-        },
-        {
-            "word": "belasten",
-            "type": "Verb",
-            "category": "Gesellschaft"
-        },
-        {
-            "word": "die Beschwerde",
-            "type": "Nomen",
-            "category": "Gesellschaft"
-        },
-        {
-            "word": "die Börse",
-            "type": "Nomen",
-            "category": "Wirtschaft"
-        }
+        { "word": "die Fähigkeit", "type": "Nomen", "category": "Eigenschaft" },
+        { "word": "gepflegt", "type": "Adjektiv", "category": "Beschreibung" },
+        { "word": "lesbisch", "type": "Adjektiv", "category": "Gesellschaft" },
+        { "word": "schwul", "type": "Adjektiv", "category": "Gesellschaft" },
+        { "word": "das Temperament", "type": "Nomen", "category": "Abstrakta" },
+        { "word": "träge", "type": "Adjektiv", "category": "Beschreibung" },
+        { "word": "das Wesen", "type": "Nomen", "category": "Abstrakta" },
+        { "word": "belasten", "type": "Verb", "category": "Gesellschaft" },
+        { "word": "die Beschwerde", "type": "Nomen", "category": "Alltag" },
+        { "word": "die Börse", "type": "Nomen", "category": "Finanzen" },
+        { "word": "die Voraussetzung", "type": "Nomen", "category": "Ausbildung" },
+        { "word": "komplex", "type": "Adjektiv", "category": "Beschreibung" }
     ]
-} 
+}

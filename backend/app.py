@@ -11,13 +11,21 @@ from collections import Counter
 from functools import wraps
 import jwt
 from dotenv import load_dotenv
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 
 load_dotenv()
 
 app = Flask(__name__, static_folder='../frontend/build')
+# Secrets and DB
 app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'a-fallback-secret-key-for-dev')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+# Use absolute SQLite path to avoid CWD surprises
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Fail fast in non-development if no proper secret key is configured
+if os.environ.get('FLASK_ENV', 'development') != 'development' and app.config['SECRET_KEY'] == 'a-fallback-secret-key-for-dev':
+    raise RuntimeError("JWT_SECRET_KEY environment variable must be set in non-development environments.")
 
 db = SQLAlchemy(app)
 
@@ -34,14 +42,34 @@ class User(db.Model):
 class UserProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    seen_words = db.Column(db.JSON, default=list)
-    failed_words = db.Column(db.JSON, default=dict)
-    problem_letters = db.Column(db.JSON, default=list)
-    failed_word_types = db.Column(db.JSON, default=dict)
+    seen_words = db.Column(MutableList.as_mutable(db.JSON), default=list)
+    failed_words = db.Column(MutableDict.as_mutable(db.JSON), default=dict)
+    problem_letters = db.Column(MutableList.as_mutable(db.JSON), default=list)
+    failed_word_types = db.Column(MutableDict.as_mutable(db.JSON), default=dict)
+    # New: Adaptive difficulty modifier, default 1.0
+    difficulty_modifier = db.Column(db.Float, nullable=False, default=1.0)
+    # Hint credits economy
+    hint_credits = db.Column(db.Integer, nullable=False, default=0)
+    wins_since_last_hint = db.Column(db.Integer, nullable=False, default=0)
+
+# New: Persisted game logs for statistics and analysis
+class GameLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    word = db.Column(db.String(200), nullable=False)
+    was_successful = db.Column(db.Boolean, nullable=False)
+    wrong_guesses = db.Column(db.Integer, nullable=False, default=0)
+    # Store wrong letters per game for letter-level analytics
+    wrong_letters = db.Column(MutableList.as_mutable(db.JSON), default=list)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
 
 
-# Vereinfachte und robustere CORS-Konfiguration für die Entwicklung
-CORS(app) # Enable CORS for all routes
+# CORS: be permissive in development, restrict otherwise
+frontend_origin = os.environ.get('CORS_ORIGIN', 'http://localhost:3000')
+if os.environ.get('FLASK_ENV', 'development') == 'development':
+    CORS(app) # Enable CORS for all routes in development
+else:
+    CORS(app, resources={r"/api/*": {"origins": frontend_origin}, r"/api/v2/*": {"origins": frontend_origin}})
 
 WORDLISTS_DIR = os.path.join(os.path.dirname(__file__), 'word_lists')
 # Die folgenden Dateien werden nicht mehr verwendet
@@ -64,8 +92,11 @@ def create_token_required_decorator(f, check_teacher=False):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split(" ")[1]
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header:
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0].lower() == 'bearer':
+                token = parts[1]
 
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401
@@ -98,33 +129,143 @@ def user_token_required(f):
     return create_token_required_decorator(f, check_teacher=False)
 
 # --- Word List Management ---
+# Cache for word lists
+word_cache = {}
+word_cache_meta = {}
+
 def get_words(level='a1'):
-    safe_level = ''.join(filter(str.isalnum, level))
-    filepath = os.path.join(WORDLISTS_DIR, f"{safe_level}.json")
-
-    if not os.path.exists(filepath):
-        # Wenn die Zieldatei nicht existiert, falle auf a1 zurück
-        filepath = os.path.join(WORDLISTS_DIR, 'a1.json')
-
+    file_path = os.path.join(WORDLISTS_DIR, f'{level}.json')
+    # Smart cache invalidation based on file mtime
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            words = data.get('words', [])
-            if words: # Sicherstellen, dass die Liste nicht leer ist
-                return words
-    except (json.JSONDecodeError, IOError):
-        # Bei Lesefehler oder JSON-Fehler, ebenfalls auf a1 zurückgreifen
-        pass
+        current_mtime = os.path.getmtime(file_path)
+    except FileNotFoundError:
+        current_mtime = None
 
-    # Fallback zum Laden von a1, falls der erste Versuch fehlschlägt
+    if level in word_cache and word_cache_meta.get(level) == current_mtime:
+        return word_cache[level]
     try:
-        filepath_a1 = os.path.join(WORDLISTS_DIR, 'a1.json')
-        with open(filepath_a1, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data.get('words', [])
-    except (json.JSONDecodeError, IOError):
-        # Wenn selbst a1 fehlschlägt, eine leere Liste zurückgeben (wird unten behandelt)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            words_data = json.load(f)
+        
+        # Process words to separate articles from nouns
+        if 'words' in words_data:
+            processed_words = []
+            for word_data in words_data['words']:
+                clean_word, article = separate_article_from_noun(word_data['word'])
+                
+                processed_word = {
+                    'word': clean_word,
+                    'type': word_data['type'],
+                    'category': word_data['category']
+                }
+                
+                # If it's a noun with an article, include the article in the category display
+                if article and word_data['type'] == 'Nomen':
+                    processed_word['category'] = f"{word_data['category']} ({article})"
+                
+                processed_words.append(processed_word)
+            
+            words_data['words'] = processed_words
+        
+        word_cache[level] = words_data
+        word_cache_meta[level] = current_mtime
+        return words_data
+    except FileNotFoundError:
+        print(f"Warning: Word list for level {level} not found.")
         return []
+
+def generate_game_hints(word, level, difficulty_modifier=1.0, training_letters=None):
+    """
+    Generate initial hints for a hangman game based on word difficulty, length, and a dynamic modifier.
+    If training_letters are provided, avoid revealing these letters and prefer not excluding them so the
+    learner can practice them.
+    Returns dict with pre_revealed_letters and excluded_letters.
+    """
+    word_lower = word.lower()
+    word_length = len(word_lower)
+    training_letters = set([c.lower() for c in training_letters]) if training_letters else set()
+    
+    # Define difficulty based on level and word length
+    if level in ['a1', 'a2']:
+        difficulty = 'easy'
+    elif level in ['b1']:
+        difficulty = 'medium'
+    else:
+        difficulty = 'hard'
+    
+    # Adjust difficulty based on word length
+    if word_length > 10:
+        if difficulty == 'easy':
+            difficulty = 'medium'
+        elif difficulty == 'medium':
+            difficulty = 'hard'
+    
+    # Determine base number of letters to reveal and exclude
+    if difficulty == 'easy':
+        base_reveal = max(1, word_length // 4)
+        base_exclude = min(8, 26 - len(set(word_lower)))
+    elif difficulty == 'medium':
+        base_reveal = max(1, word_length // 5)
+        base_exclude = min(6, 26 - len(set(word_lower)))
+    else:  # hard
+        base_reveal = max(1, word_length // 6)
+        base_exclude = min(4, 26 - len(set(word_lower)))
+
+    # Apply the difficulty modifier, ensuring at least one letter is revealed and not too many are excluded
+    reveal_count = min(word_length - 1, max(1, round(base_reveal * difficulty_modifier)))
+    exclude_count = min(20, max(0, round(base_exclude * difficulty_modifier)))
+    
+    # Get unique letters in the word
+    word_letters = set(word_lower)
+    
+    # Select letters to pre-reveal (prefer vowels and common letters)
+    vowels = set('aeiouäöü')
+    common_consonants = set('nrtsm')
+    
+    # Prioritize vowels first, then common consonants
+    letters_to_reveal = []
+    available_vowels = (word_letters & vowels) - training_letters
+    available_consonants = (word_letters & common_consonants) - training_letters
+    remaining_letters = (word_letters - vowels - common_consonants) - training_letters
+    
+    # Add vowels first
+    # Deterministic order for UI stability
+    letters_to_reveal.extend(sorted(list(available_vowels))[:reveal_count])
+    
+    # Add common consonants if we need more
+    if len(letters_to_reveal) < reveal_count:
+        needed = reveal_count - len(letters_to_reveal)
+        letters_to_reveal.extend(sorted(list(available_consonants))[:needed])
+    
+    # Add remaining letters if still needed
+    if len(letters_to_reveal) < reveal_count:
+        needed = reveal_count - len(letters_to_reveal)
+        letters_to_reveal.extend(sorted(list(remaining_letters))[:needed])
+
+    # If still not enough (e.g., training letters cover almost all), allow from the rest excluding duplicates
+    if len(letters_to_reveal) < reveal_count:
+        needed = reveal_count - len(letters_to_reveal)
+        fallback_letters = sorted(list(word_letters - set(letters_to_reveal)))
+        letters_to_reveal.extend(fallback_letters[:needed])
+    
+    # Select letters to exclude (letters not in the word)
+    all_letters = set('abcdefghijklmnopqrstuvwxyzäöüß')
+    letters_not_in_word = all_letters - word_letters
+    
+    # Prefer excluding uncommon letters
+    uncommon_letters = set('qxyzvjckwpfgbh')
+    # Prefer excluding letters the learner is NOT training right now
+    exclude_candidates = (letters_not_in_word & uncommon_letters) - training_letters
+    
+    if len(exclude_candidates) < exclude_count:
+        exclude_candidates.update((letters_not_in_word - exclude_candidates) - training_letters)
+    
+    excluded_letters = sorted(list(exclude_candidates))[:exclude_count]
+    
+    return {
+        'pre_revealed_letters': letters_to_reveal,
+        'excluded_letters': excluded_letters
+    }
 
 @app.route('/api/word')
 @user_token_required
@@ -138,21 +279,28 @@ def get_word(current_user):
 
     # 1. Priorität: Spaced Repetition - fällige Wörter wiederholen
     due_words = [
-        word for word, data in profile['failed_words'].items()
+        word for word, data in profile.failed_words.items()
         if now >= datetime.fromisoformat(data['next_review'])
     ]
     
-    all_words_data = get_words(level)
+    words_response = get_words(level)
+    all_words_data = words_response.get('words', []) if isinstance(words_response, dict) else words_response
 
     if due_words:
         word_to_review = random.choice(due_words)
         # Finde die vollen Wortdaten für das zu wiederholende Wort
         word_data = next((item for item in all_words_data if item['word'] == word_to_review), None)
         if word_data:
+            # Add game hints
+            hints = generate_game_hints(
+                word_data['word'], level, profile.difficulty_modifier,
+                training_letters=profile.problem_letters if use_model and profile.problem_letters else None
+            )
+            word_data.update(hints)
             return jsonify(word_data)
 
     # 2. Priorität: Gezieltes Training von Problem-Wortarten
-    failed_types = profile.get('failed_word_types', {})
+    failed_types = profile.failed_word_types
     if failed_types:
         # Finde die problematischste Wortart (die mit den meisten Fehlern)
         problem_type = max(failed_types, key=failed_types.get)
@@ -160,37 +308,67 @@ def get_word(current_user):
         if failed_types[problem_type] > 3:
             candidate_words = [
                 item for item in all_words_data
-                if item.get('type') == problem_type and item['word'] not in profile['seen_words']
+                if item.get('type') == problem_type and item['word'] not in profile.seen_words
             ]
             if candidate_words:
                 word_data = random.choice(candidate_words)
+                # Add game hints
+                hints = generate_game_hints(
+                    word_data['word'], level, profile.difficulty_modifier,
+                    training_letters=profile.problem_letters if use_model and profile.problem_letters else None
+                )
+                word_data.update(hints)
                 return jsonify(word_data)
 
     # 3. Priorität: KI-Training mit Problembuchstaben (falls aktiviert)
     if use_model:
-        problem_letters = profile.get('problem_letters', [])
+        problem_letters = profile.problem_letters
         if problem_letters:
             candidate_words = [
                 item for item in all_words_data
-                if any(char in item['word'].lower() for char in problem_letters) and item['word'] not in profile['seen_words']
+                if any(char in item['word'].lower() for char in problem_letters) and item['word'] not in profile.seen_words
             ]
             if candidate_words:
                 word_data = random.choice(candidate_words)
+                # Add game hints
+                hints = generate_game_hints(
+                    word_data['word'], level, profile.difficulty_modifier,
+                    training_letters=profile.problem_letters
+                )
+                word_data.update(hints)
                 return jsonify(word_data)
 
     # 4. Priorität: Ein zufälliges, noch nicht gesehenes Wort vom gewählten Level
-    unseen_words = [item for item in all_words_data if item['word'] not in profile['seen_words']]
+    unseen_words = [item for item in all_words_data if item['word'] not in profile.seen_words]
     if unseen_words:
         word_data = random.choice(unseen_words)
+        # Add game hints
+        hints = generate_game_hints(
+            word_data['word'], level, profile.difficulty_modifier,
+            training_letters=profile.problem_letters if use_model and profile.problem_letters else None
+        )
+        word_data.update(hints)
         return jsonify(word_data)
         
     # 5. Fallback: Wenn alle Wörter des Levels gesehen wurden, ein zufälliges Wort
     if all_words_data:
         word_data = random.choice(all_words_data)
+        # Add game hints
+        hints = generate_game_hints(
+            word_data['word'], level, profile.difficulty_modifier,
+            training_letters=profile.problem_letters if use_model and profile.problem_letters else None
+        )
+        word_data.update(hints)
         return jsonify(word_data)
 
     # 6. Absoluter Notfall-Fallback, falls alles andere fehlschlägt
-    return jsonify({"word": "software", "type": "Nomen", "category": "Technik"})
+    fallback_word = {"word": "software", "type": "Nomen", "category": "Technik"}
+    hints = generate_game_hints(
+        fallback_word['word'], level, profile.difficulty_modifier,
+        training_letters=profile.problem_letters if use_model and profile.problem_letters else None
+    )
+    fallback_word.update(hints)
+    return jsonify(fallback_word)
 
 @app.route('/api/hint')
 def get_hint():
@@ -200,7 +378,8 @@ def get_hint():
 
     # Durchsuche alle Wortlisten nach dem Wort, um die Metadaten zu finden
     for level in ['a1', 'a2', 'b1', 'b2', 'c1']:
-        all_words_data = get_words(level)
+        words_response = get_words(level)
+        all_words_data = words_response.get('words', []) if isinstance(words_response, dict) else words_response
         for word_data in all_words_data:
             if word_data['word'].lower() == word_to_find.lower():
                 hint = f"Tipp: Es ist ein {word_data['type']} aus der Kategorie '{word_data['category']}'."
@@ -215,8 +394,16 @@ def get_feedback(current_user):
     user_id = current_user.id
     profile = get_user_profile(user_id)
     
-    problem_letters = profile.get('problem_letters')
-    if not problem_letters:
+    problem_letters = profile.problem_letters
+    # Require sufficient data before giving feedback
+    # Aggregate total failures across all failed words
+    total_failures = 0
+    try:
+        total_failures = sum((entry or {}).get('count', 0) for entry in profile.failed_words.values())
+    except Exception:
+        total_failures = 0
+
+    if not problem_letters or total_failures < 3:
         return jsonify({'feedback': None})
 
     feedback_message = f"Gut gespielt! Mir ist aufgefallen, dass du manchmal mit den Buchstaben {', '.join(problem_letters)} Schwierigkeiten hast. Im KI-Trainingsmodus können wir das gezielt üben."
@@ -247,66 +434,112 @@ def log_guess():
     return jsonify({'success': True}), 201
 
 
-# Neuer Endpunkt zum Protokollieren des gesamten Spiels
 @app.route('/api/log_game', methods=['POST'])
 @user_token_required
 def log_game(current_user):
-    data = request.get_json()
-    word = data.get('word')
-    word_type = data.get('wordType') # Neu: Wortart vom Frontend empfangen
-    was_successful = data.get('wasSuccessful')
+    """Persist legacy CSV logging for compatibility but use DB for queries."""
+    data = request.get_json() or {}
+    word = data.get('word') or ''
+    word_type = data.get('wordType')
+    was_successful = bool(data.get('wasSuccessful'))
+    wrong_letters = data.get('wrongLetters', []) or []
+    wrong_guesses = int(data.get('wrongGuesses') or 0)
     user_id = current_user.id
 
-    # Update des Nutzerprofils
     profile = get_user_profile(user_id)
-    
-    # Füge das Wort zur Liste der gesehenen Wörter hinzu
-    if word not in profile['seen_words']:
-        profile['seen_words'].append(word)
+
+    if word and word not in (profile.seen_words or []):
+        profile.seen_words.append(word)
 
     if not was_successful:
-        # Wenn das Wort falsch war, füge es zu den failed_words hinzu oder aktualisiere es
-        failure_count = profile['failed_words'].get(word, {}).get('count', 0) + 1
-        profile['failed_words'][word] = {
+        profile.difficulty_modifier = min(2.0, (profile.difficulty_modifier or 1.0) * 1.1)
+        failure_count = (profile.failed_words or {}).get(word, {}).get('count', 0) + 1
+        profile.failed_words[word] = {
             "count": failure_count,
-            # Nächste Wiederholung in 2^N Tagen (einfacher Spaced Repetition Algorithmus)
             "next_review": (datetime.now(timezone.utc) + timedelta(days=2**failure_count)).isoformat()
         }
-        # Zähle den Fehler für die Wortart
         if word_type:
-            profile['failed_word_types'][word_type] = profile['failed_word_types'].get(word_type, 0) + 1
+            profile.failed_word_types[word_type] = (profile.failed_word_types or {}).get(word_type, 0) + 1
+    else:
+        profile.difficulty_modifier = max(0.5, (profile.difficulty_modifier or 1.0) * 0.95)
+        profile.wins_since_last_hint = (profile.wins_since_last_hint or 0) + 1
+        if profile.wins_since_last_hint >= 3:
+            gained = profile.wins_since_last_hint // 3
+            profile.hint_credits = int(profile.hint_credits or 0) + int(gained)
+            profile.wins_since_last_hint = profile.wins_since_last_hint % 3
 
-    # Dynamische Analyse der Problembuchstaben
-    all_failed_letters = "".join(profile['failed_words'].keys())
-    if all_failed_letters:
-        letter_counts = Counter(all_failed_letters)
-        # Nimm die 5 häufigsten Problembuchstaben
-        profile['problem_letters'] = [letter for letter, count in letter_counts.most_common(5)]
+    try:
+        game_log = GameLog(
+            user_id=user_id,
+            word=word,
+            was_successful=was_successful,
+            wrong_guesses=wrong_guesses,
+            wrong_letters=[str(ch) for ch in wrong_letters]
+        )
+        db.session.add(game_log)
+    except Exception:
+        pass
 
-    # update_user_profile(user_id, profile) # Diese Zeile wird durch db.session.commit() ersetzt
-    db.session.commit() # Speichere die Änderungen im Profil
-    
-    # Logge das Spielereignis in die CSV-Datei (kann für globale Analysen nützlich bleiben)
+    try:
+        logs = GameLog.query.filter_by(user_id=user_id).all()
+        aggregate = Counter()
+        for gl in logs:
+            for ch in (gl.wrong_letters or []):
+                if isinstance(ch, str) and len(ch) == 1:
+                    aggregate[ch] += 1
+        profile.problem_letters = [letter for letter, _ in aggregate.most_common(5)]
+    except Exception:
+        pass
+
+    db.session.commit()
+
     log_entry = {
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'user_id': user_id,
         'word': word,
-        'wrong_guesses': data.get('wrongGuesses'),
+        'wrong_guesses': wrong_guesses,
         'was_successful': was_successful
     }
-    
     log_file = os.path.join(os.path.dirname(__file__), 'game_log.csv')
-    
-    # Schreibe den Header, wenn die Datei neu ist
     write_header = not os.path.exists(log_file)
-    
     with open(log_file, 'a', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=log_entry.keys())
         if write_header:
             writer.writeheader()
         writer.writerow(log_entry)
-        
-    return jsonify({'success': True, 'problem_letters': profile.get('problem_letters', [])}), 201
+
+    return jsonify({'success': True, 'problem_letters': profile.problem_letters}), 201
+
+@app.route('/api/user/statistics')
+@user_token_required
+def get_user_statistics(current_user):
+    """Get user statistics including wins, losses, and other game data (DB-backed)."""
+    user_id = current_user.id
+    profile = get_user_profile(user_id)
+
+    # Count wins and losses from GameLog table
+    try:
+        wins = GameLog.query.filter_by(user_id=user_id, was_successful=True).count()
+        losses = GameLog.query.filter_by(user_id=user_id, was_successful=False).count()
+    except Exception:
+        wins = 0
+        losses = 0
+
+    total_games = wins + losses
+    win_rate = round((wins / total_games * 100) if total_games > 0 else 0, 1)
+
+    statistics = {
+        'wins': wins,
+        'losses': losses,
+        'total_games': total_games,
+        'win_rate': win_rate,
+        'seen_words': len(profile.seen_words or []),
+        'failed_words': len(profile.failed_words or {}),
+        'problem_letters': profile.problem_letters or [],
+        'hint_credits': int(profile.hint_credits or 0)
+    }
+
+    return jsonify(statistics)
 
 # --- V2 AUTH AND MULTI-USER SYSTEM ---
 
@@ -330,6 +563,23 @@ def log_game(current_user):
 #         json.dump(users_data, f, indent=2) # Removed as per new_code
 
 # --- V2 PLACEMENT TEST ---
+def separate_article_from_noun(word_with_article):
+    """
+    Separates German articles from nouns and returns both the clean word and the article.
+    """
+    word_with_article = word_with_article.strip()
+    
+    # Check for definite articles
+    if word_with_article.startswith('der '):
+        return word_with_article[4:], 'der'
+    elif word_with_article.startswith('die '):
+        return word_with_article[4:], 'die'
+    elif word_with_article.startswith('das '):
+        return word_with_article[4:], 'das'
+    
+    # If no article found, return the word as is
+    return word_with_article, None
+
 @app.route('/api/placement-test/questions')
 def get_placement_test_questions():
     """
@@ -338,31 +588,55 @@ def get_placement_test_questions():
     """
     test_words = [
         # A1 Level
-        {"word": "Apfel", "type": "Nomen", "category": "Essen"},
-        {"word": "Haus", "type": "Nomen", "category": "Wohnen"},
-        {"word": "schwimmen", "type": "Verb", "category": "Freizeit"},
-        {"word": "groß", "type": "Adjektiv", "category": "Beschreibung"},
-        {"word": "die Familie", "type": "Nomen", "category": "Person"},
+        {"word": "Apfel", "type": "Nomen", "category": "Essen", "level": "a1"},
+        {"word": "Haus", "type": "Nomen", "category": "Wohnen", "level": "a1"},
+        {"word": "schwimmen", "type": "Verb", "category": "Freizeit", "level": "a1"},
+        {"word": "groß", "type": "Adjektiv", "category": "Beschreibung", "level": "a1"},
+        {"word": "die Familie", "type": "Nomen", "category": "Person", "level": "a1"},
         # A2 Level
-        {"word": "der Ausweis", "type": "Nomen", "category": "Alltag"},
-        {"word": "berühmt", "type": "Adjektiv", "category": "Person"},
-        {"word": "der Bahnhof", "type": "Nomen", "category": "Reisen"},
-        {"word": "erklären", "type": "Verb", "category": "Kommunikation"},
-        {"word": "die Mannschaft", "type": "Nomen", "category": "Freizeit"},
+        {"word": "der Ausweis", "type": "Nomen", "category": "Alltag", "level": "a2"},
+        {"word": "berühmt", "type": "Adjektiv", "category": "Person", "level": "a2"},
+        {"word": "der Bahnhof", "type": "Nomen", "category": "Reisen", "level": "a2"},
+        {"word": "erklären", "type": "Verb", "category": "Kommunikation", "level": "a2"},
+        {"word": "die Mannschaft", "type": "Nomen", "category": "Freizeit", "level": "a2"},
         # B1 Level
-        {"word": "die Fähigkeit", "type": "Nomen", "category": "Person"},
-        {"word": "beeinflussen", "type": "Verb", "category": "Person"},
-        {"word": "die Umweltverschmutzung", "type": "Nomen", "category": "Umwelt"},
-        {"word": "verantwortlich", "type": "Adjektiv", "category": "Arbeit"},
-        {"word": "die Gesellschaft", "type": "Nomen", "category": "Gesellschaft"},
+        {"word": "die Fähigkeit", "type": "Nomen", "category": "Abstrakta", "level": "b1"},
+        {"word": "beeinflussen", "type": "Verb", "category": "Person", "level": "b1"},
+        {"word": "die Umweltverschmutzung", "type": "Nomen", "category": "Umwelt", "level": "b1"},
+        {"word": "verantwortlich", "type": "Adjektiv", "category": "Arbeit", "level": "b1"},
+        {"word": "die Gesellschaft", "type": "Nomen", "category": "Gesellschaft", "level": "b1"},
         # B2 Level
-        {"word": "die Voraussetzung", "type": "Nomen", "category": "Ausbildung"},
-        {"word": "wissenschaftlich", "type": "Adjektiv", "category": "Ausbildung"},
-        {"word": "die Wirtschaft", "type": "Nomen", "category": "Wirtschaft"},
-        {"word": "komplex", "type": "Adjektiv", "category": "Beschreibung"},
-        {"word": "die Herausforderung", "type": "Nomen", "category": "Gesellschaft"}
+        {"word": "die Voraussetzung", "type": "Nomen", "category": "Ausbildung", "level": "b2"},
+        {"word": "wissenschaftlich", "type": "Adjektiv", "category": "Ausbildung", "level": "b2"},
+        {"word": "die Wirtschaft", "type": "Nomen", "category": "Wirtschaft", "level": "b2"},
+        {"word": "komplex", "type": "Adjektiv", "category": "Beschreibung", "level": "b2"},
+        {"word": "die Herausforderung", "type": "Nomen", "category": "Gesellschaft", "level": "b2"}
     ]
-    return jsonify(test_words)
+    
+    # Process words to separate articles from nouns
+    processed_words = []
+    for word_data in test_words.copy():
+        clean_word, article = separate_article_from_noun(word_data['word'])
+        
+        # Create processed word data
+        processed_word = {
+            'word': clean_word,
+            'type': word_data['type'],
+            'category': word_data['category'],
+            'level': word_data['level']
+        }
+        
+        # If it's a noun with an article, include the article in the category display
+        if article and word_data['type'] == 'Nomen':
+            processed_word['category'] = f"{word_data['category']} ({article})"
+        
+        # Generate hints for the clean word (without article)
+        hints = generate_game_hints(clean_word, word_data['level'], 1.0)
+        processed_word.update(hints)
+        
+        processed_words.append(processed_word)
+
+    return jsonify(processed_words)
 
 
 @app.route('/api/placement-test/submit', methods=['POST'])
@@ -416,7 +690,7 @@ def login_v2():
             'role': user.role,
             'level': user.level
         },
-        'token': token
+        'token': token if isinstance(token, str) else token.decode('utf-8')
     })
 
 @app.route('/api/v2/register', methods=['POST'])
@@ -462,7 +736,8 @@ def get_students_data_v2(current_user):
                 'seen_words': len(profile.seen_words) if profile else 0,
                 'failed_words': len(profile.failed_words) if profile else 0,
                 'problem_letters': profile.problem_letters if profile else [],
-                'failed_word_types': profile.failed_word_types if profile else {}
+                'failed_word_types': profile.failed_word_types if profile else {},
+                'difficulty_modifier': round(profile.difficulty_modifier, 2) if profile else 1.0
             }
         })
     return jsonify(student_data)
@@ -484,6 +759,79 @@ def delete_user_v2(current_user, username):
 
     return jsonify({'message': f'User {username} deleted successfully'}), 200
 
+@app.route('/api/v2/student/<string:username>/difficulty', methods=['PUT'])
+@teacher_token_required
+def set_student_difficulty(current_user, username):
+    data = request.get_json()
+    new_modifier = data.get('difficulty_modifier')
+
+    if new_modifier is None:
+        return jsonify({'message': 'Difficulty modifier is required'}), 400
+
+    try:
+        new_modifier = float(new_modifier)
+        if not (0.1 <= new_modifier <= 3.0):
+            raise ValueError()
+    except (ValueError, TypeError):
+        return jsonify({'message': 'Invalid difficulty modifier. Must be a number between 0.1 and 3.0'}), 400
+
+    student = User.query.filter_by(username=username, role='student').first()
+    if not student:
+        return jsonify({'message': 'Student not found'}), 404
+
+    profile = get_user_profile(student.id)
+    profile.difficulty_modifier = new_modifier
+    db.session.commit()
+
+    return jsonify({'message': f"Difficulty for {username} updated successfully."})
+
+
+@app.route('/api/v2/logout', methods=['POST'])
+def logout_v2():
+    """Stateless JWT logout endpoint for symmetry with the client. Always succeeds."""
+    return jsonify({'message': 'Logout successful'}), 200
+
+
+@app.route('/api/v2/use_hint', methods=['POST'])
+@user_token_required
+def use_hint(current_user):
+    data = request.get_json()
+    word = (data or {}).get('word', '')
+    guessed_letters = set((data or {}).get('guessed_letters', []))
+
+    if not word:
+        return jsonify({'message': 'Word required'}), 400
+
+    profile = get_user_profile(current_user.id)
+    if (profile.hint_credits or 0) <= 0:
+        return jsonify({'message': 'No hint credits available'}), 400
+
+    word_lower = word.lower()
+    candidates = [ch for ch in word_lower if ch not in guessed_letters]
+    if not candidates:
+        return jsonify({'message': 'All letters already revealed'}), 400
+
+    # Choose a letter to reveal: prioritize vowels then common consonants
+    vowels = 'aeiouäöü'
+    commons = 'nrtsm'
+    chosen = None
+    for pool in [vowels, commons]:
+        for ch in pool:
+            if ch in candidates:
+                chosen = ch
+                break
+        if chosen:
+            break
+    if not chosen:
+        chosen = candidates[0]
+
+    # Deduct credit
+    profile.hint_credits = max(0, (profile.hint_credits or 0) - 1)
+    db.session.commit()
+
+    return jsonify({'revealed_letter': chosen, 'hint_credits': profile.hint_credits})
+
+
 # Serve React App
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -497,8 +845,44 @@ def serve(path):
 def init_db():
     with app.app_context():
         db.create_all()
-        # Optional: Hier könnten Standard-User oder -Wortlisten hinzugefügt werden
+        # Lightweight auto-migration for new columns on existing installs
+        try:
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            columns = {c['name'] for c in inspector.get_columns('user_profile')}
+            with db.engine.connect() as connection:
+                if 'difficulty_modifier' not in columns:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN difficulty_modifier FLOAT NOT NULL DEFAULT 1.0;'))
+                if 'hint_credits' not in columns:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN hint_credits INTEGER NOT NULL DEFAULT 0;'))
+                if 'wins_since_last_hint' not in columns:
+                    connection.execute(text('ALTER TABLE user_profile ADD COLUMN wins_since_last_hint INTEGER NOT NULL DEFAULT 0;'))
+        except Exception:
+            # Best-effort: never block app startup because of migration issues
+            pass
+
+        # Ensure demo teacher account exists with known password
+        try:
+            teacher_username = os.environ.get('TEACHER_USERNAME', 'Lehrer')
+            teacher_password = os.environ.get('TEACHER_PASSWORD', 'BWKI2025!')
+            teacher = User.query.filter_by(username=teacher_username).first()
+            if teacher is None:
+                teacher = User(
+                    username=teacher_username,
+                    password_hash=generate_password_hash(teacher_password),
+                    role='teacher'
+                )
+                db.session.add(teacher)
+            else:
+                teacher.password_hash = generate_password_hash(teacher_password)
+                teacher.role = 'teacher'
+            db.session.commit()
+        except Exception:
+            # Do not block startup if teacher creation fails
+            pass
+
+# Ensure DB is initialized when module is imported (e.g., via `flask run`)
+init_db()
 
 if __name__ == '__main__':
-    init_db()
-    app.run(debug=True) 
+    app.run(debug=True)

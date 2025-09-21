@@ -49,6 +49,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           />
         </div>
         <button type="submit" className="login-btn">Anmelden</button>
+        <div className="info-box">
+          <h3>Für BWKI 2025</h3>
+          <p>
+            Demo-Zugang zum Lehrerbereich:<br/>
+            <strong>Benutzer:</strong> Lehrer<br/>
+            <strong>Passwort:</strong> BWKI2025!
+          </p>
+          <p>
+            Dieser Zugang ist ausschließlich für Jury-Demos gedacht. Das Konto
+            <strong> kann nicht spielen</strong> und dient nur zur Ansicht des
+            Lehrer-Dashboards. Beim Veröffentlichen auf GitHub bleibt nur der
+            Benutzer <strong>"Lehrer"</strong> bestehen.
+          </p>
+        </div>
       </form>
     </div>
   );

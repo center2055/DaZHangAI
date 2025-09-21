@@ -32,7 +32,15 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  color: transparent; /* Fallback */
+  color: var(--primary-color); /* Fallback for dark mode */
+}
+
+/* Enhanced gradient for dark mode */
+body.dark-mode .header-title h1 {
+  background: linear-gradient(45deg, var(--primary-color), #9d7df0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .header-title {
@@ -76,7 +84,7 @@
 
 main {
   flex-grow: 1;
-  padding: 2rem;
+  padding: clamp(12px, 2vw, 24px);
   width: 100%;
   box-sizing: border-box;
 }

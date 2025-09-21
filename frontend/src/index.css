@@ -3,11 +3,27 @@
   --primary-hover-color: #357abd;
   --secondary-color: #f5f7fa; /* Heller Hintergrund */
   --background-color: white; /* Hintergrund der Komponenten */
+  --background-color-light: #ffffff; /* Spezieller Hintergrund für Cards */
   --text-color: #333;
+  --text-color-secondary: #666;
   --text-light-color: #f8f9fa;
   --correct-color: #50e3c2; /* Grün für richtige Buchstaben */
   --incorrect-color: #e35050; /* Rot für falsche Buchstaben */
   --border-color: #d1d5da;
+  --key-bg-color: #ffffff;
+  --key-text-color: #333;
+  --key-border-color: #d1d5da;
+  --key-border-shadow-color: #b0b7c3;
+  --key-hover-bg-color: #f6f8fa;
+  --key-guessed-bg-color: #e1e5e9;
+  --key-guessed-text-color: #586069;
+  --success-bg-color: #d4edda;
+  --success-text-color: #155724;
+  --error-bg-color: #f8d7da;
+  --error-text-color: #721c24;
+  --info-bg-color: #d1ecf1;
+  --info-text-color: #0c5460;
+  --code-bg-color: #eef1f4;
   --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
   --border-radius: 8px;
   --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -18,9 +34,27 @@ body.dark-mode {
   --primary-hover-color: #4088e0;
   --secondary-color: #0d1117;
   --background-color: #161b22;
+  --background-color-light: #21262d;
   --text-color: #c9d1d9;
+  --text-color-secondary: #8b949e;
   --text-light-color: #f0f6fc;
+  --correct-color: #56d364;
+  --incorrect-color: #f85149;
   --border-color: #30363d;
+  --key-bg-color: #21262d;
+  --key-text-color: #c9d1d9;
+  --key-border-color: #30363d;
+  --key-border-shadow-color: #21262d;
+  --key-hover-bg-color: #30363d;
+  --key-guessed-bg-color: #30363d;
+  --key-guessed-text-color: #8b949e;
+  --success-bg-color: rgba(46, 160, 67, 0.15);
+  --success-text-color: #56d364;
+  --error-bg-color: rgba(248, 81, 73, 0.15);
+  --error-text-color: #f85149;
+  --info-bg-color: rgba(56, 139, 253, 0.15);
+  --info-text-color: #58a6ff;
+  --code-bg-color: #161b22;
   --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
@@ -38,7 +72,20 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
-  background-color: #eef1f4;
+  background-color: var(--code-bg-color);
+  color: var(--text-color);
   padding: 0.2em 0.4em;
   border-radius: 4px;
+}
+
+/* Global error message styling for components without their own CSS */
+.error-message {
+  color: var(--error-text-color);
+  background-color: var(--error-bg-color);
+  border: 1px solid var(--incorrect-color);
+  padding: 0.75rem;
+  border-radius: var(--border-radius);
+  text-align: center;
+  margin: 1rem 0;
+  font-weight: 500;
 } 

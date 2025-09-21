@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchStudentsData, deleteStudent } from '../authApi';
 import './TeacherDashboard.css';
 import { User } from '../types';
@@ -15,6 +15,7 @@ interface StudentData {
         failed_words: number;
         problem_letters: string[];
         failed_word_types: Record<string, number>;
+        difficulty_modifier: number;
     };
 }
 
@@ -84,24 +85,58 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token }) => {
         return { barData, pieData };
     }, [students]);
 
-    useEffect(() => {
-        const loadData = async () => {
-            if (!token) {
-                setError("Authentifizierungstoken nicht gefunden.");
-                setLoading(false);
-                return;
-            }
-            try {
-                const data = await fetchStudentsData(token);
-                setStudents(data);
-            } catch (err: any) {
-                setError(err.message || 'Daten konnten nicht geladen werden.');
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadData();
+    const loadData = useCallback(async () => {
+        if (!token) {
+            setError("Authentifizierungstoken nicht gefunden.");
+            setLoading(false);
+            return;
+        }
+        try {
+            const data = await fetchStudentsData(token);
+            setStudents(data);
+        } catch (err: any) {
+            setError(err.message || 'Daten konnten nicht geladen werden.');
+        } finally {
+            setLoading(false);
+        }
     }, [token]);
+
+    const handleDifficultyChange = useCallback(async (username: string, newModifier: number) => {
+        if (!token) {
+            setError("Authentifizierungstoken nicht gefunden.");
+            return;
+        }
+        try {
+            // Optimistically update the UI
+            setStudents(prev => prev.map(s => s.username === username ? { ...s, progress: { ...s.progress, difficulty_modifier: newModifier } } : s));
+
+            const response = await fetch(`/api/v2/student/${username}/difficulty`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ difficulty_modifier: newModifier })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Fehler beim Aktualisieren der Schwierigkeit.');
+            }
+            
+            // Optional: Show a success message
+            console.log(`Schwierigkeit für ${username} erfolgreich aktualisiert.`);
+
+        } catch (err: any) {
+            setError(err.message);
+            // Revert the optimistic update on error
+            loadData();
+        }
+    }, [token, loadData]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const handleDeleteStudent = async (username: string) => {
         if (window.confirm(`Möchten Sie den Schüler "${username}" wirklich endgültig löschen?`)) {
@@ -150,6 +185,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token }) => {
                         <th>Anzahl Fehler</th>
                         <th>Problembuchstaben</th>
                         <th>Problem-Wortarten</th>
+                        <th>Schwierigkeit (Leichter/Schwerer)</th>
                         <th>Aktionen</th>
                     </tr>
                 </thead>
@@ -165,6 +201,19 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, token }) => {
                                 {Object.entries(student.progress.failed_word_types || {})
                                     .map(([type, count]) => `${type}: ${count}`)
                                     .join(', ') || 'Keine'}
+                            </td>
+                            <td>
+                                <div className="difficulty-slider">
+                                    <input
+                                        type="range"
+                                        min="0.5"
+                                        max="2.0"
+                                        step="0.1"
+                                        value={student.progress.difficulty_modifier}
+                                        onChange={(e) => handleDifficultyChange(student.username, parseFloat(e.target.value))}
+                                    />
+                                    <span>{student.progress.difficulty_modifier.toFixed(1)}</span>
+                                </div>
                             </td>
                             <td>
                                 <button

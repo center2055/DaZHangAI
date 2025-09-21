@@ -1,44 +1,14 @@
 {
     "words": [
-        {
-            "word": "anhaben",
-            "type": "Verb",
-            "category": "Person"
-        },
-        {
-            "word": "gebieten",
-            "type": "Verb",
-            "category": "Person"
-        },
-        {
-            "word": "preisen",
-            "type": "Verb",
-            "category": "Person"
-        },
-        {
-            "word": "schreiten",
-            "type": "Verb",
-            "category": "Alltag"
-        },
-        {
-            "word": "der Kocher",
-            "type": "Nomen",
-            "category": "Wohnen"
-        },
-        {
-            "word": "anschlagen",
-            "type": "Verb",
-            "category": "Freizeit"
-        },
-        {
-            "word": "bahnen",
-            "type": "Verb",
-            "category": "Reisen"
-        },
-        {
-            "word": "sich regen",
-            "type": "Verb",
-            "category": "Umwelt"
-        }
+        { "word": "anhaben", "type": "Verb", "category": "Alltag" },
+        { "word": "gebieten", "type": "Verb", "category": "Gesellschaft" },
+        { "word": "preisen", "type": "Verb", "category": "Kommunikation" },
+        { "word": "schreiten", "type": "Verb", "category": "Bewegung" },
+        { "word": "der Kocher", "type": "Nomen", "category": "Wohnen" },
+        { "word": "anschlagen", "type": "Verb", "category": "Medien" },
+        { "word": "bahnen", "type": "Verb", "category": "Reisen" },
+        { "word": "sich regen", "type": "Verb", "category": "Natur" },
+        { "word": "die Ambivalenz", "type": "Nomen", "category": "Abstrakta" },
+        { "word": "die Evidenz", "type": "Nomen", "category": "Wissenschaft" }
     ]
-} 
+}

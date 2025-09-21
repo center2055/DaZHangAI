@@ -49,11 +49,18 @@ const AppContent = () => {
     const handleLogout = async () => {
         if (appState.user) {
             await logout(appState.user.username);
+            // Clear any placement test data for the current user
+            localStorage.removeItem(`placementTestIndex_${appState.user.username}`);
+            localStorage.removeItem(`placementTestCorrect_${appState.user.username}`);
             setAppState({ user: null, token: null });
         }
     };
 
     const handleLoginSuccess = (user: User, token: string) => {
+        // Clear any old generic placement test data (from before user-specific keys)
+        localStorage.removeItem('placementTestIndex');
+        localStorage.removeItem('placementTestCorrect');
+        
         setAppState({ user, token });
     };
 
@@ -102,9 +109,9 @@ const AppContent = () => {
                         <Hangman user={appState.user} token={appState.token} />
                     } />
                     <Route path="/login" element={!appState.user ? <Login onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} />
-                    <Route path="/register" element={!appState.user ? <Register onRegisterSuccess={(user) => handleLoginSuccess(user, '')} /> : <Navigate to="/" />} />
+                    <Route path="/register" element={!appState.user ? <Register onRegisterSuccess={handleLoginSuccess} /> : <Navigate to="/" />} />
                     <Route path="/dashboard" element={appState.user && appState.user.role === 'teacher' && appState.token ? <TeacherDashboard user={appState.user} token={appState.token} /> : <Navigate to="/" />} />
-                    <Route path="/placement-test" element={appState.user && appState.user.level === null ? <PlacementTest user={appState.user} onTestComplete={handleTestComplete} /> : <Navigate to="/" />} />
+                    <Route path="/placement-test" element={appState.user && appState.user.level === null && appState.token ? <PlacementTest user={appState.user} token={appState.token} onTestComplete={handleTestComplete} /> : <Navigate to="/" />} />
                 </Routes>
             </main>
         </div>

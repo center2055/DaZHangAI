@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { register } from '../authApi';
+import { register, login } from '../authApi';
 import { User } from '../types';
 import './Login.css'; // Wir können die gleichen Stile wiederverwenden
 
 interface RegisterProps {
-  onRegisterSuccess: (user: User) => void;
+  onRegisterSuccess: (user: User, token: string) => void;
 }
 
 const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
@@ -32,16 +32,14 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
     const result = await register(username, password, age, finalMotherTongue);
 
     if (result.success) {
-      // Nach erfolgreicher Registrierung den neuen Benutzer erstellen und an App.tsx übergeben
-      const newUser: User = {
-        username,
-        role: 'student',
-        level: null, // Level wird initial auf null gesetzt
-        age: parseInt(age, 10),
-        motherTongue: finalMotherTongue
-      };
-      onRegisterSuccess(newUser);
-      navigate('/'); // Leitet zum Root, der dann zum Test weiterleitet
+      try {
+        const loginData = await login(username, password);
+        onRegisterSuccess(loginData.user, loginData.token);
+        navigate('/');
+      } catch (loginError) {
+        console.error('Auto-login after registration failed:', loginError);
+        setError('Registrierung erfolgreich, aber automatischer Login fehlgeschlagen. Bitte manuell anmelden.');
+      }
     } else {
       setError(result.message || 'Registrierung fehlgeschlagen.');
     }
@@ -130,3 +128,4 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
 };
 
 export default Register; 
+

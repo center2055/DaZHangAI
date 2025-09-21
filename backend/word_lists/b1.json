@@ -1,14 +1,16 @@
 {
   "words": [
-    { "word": "Umwelt", "type": "Nomen", "category": "Abstrakt" },
+    { "word": "Umwelt", "type": "Nomen", "category": "Natur" },
     { "word": "Regierung", "type": "Nomen", "category": "Politik" },
-    { "word": "Wissenschaft", "type": "Nomen", "category": "Abstrakt" },
-    { "word": "Gesellschaft", "type": "Nomen", "category": "Abstrakt" },
-    { "word": "Verantwortung", "type": "Nomen", "category": "Abstrakt" },
-    { "word": "Entwicklung", "type": "Nomen", "category": "Abstrakt" },
-    { "word": "Beziehung", "type": "Nomen", "category": "Abstrakt" },
-    { "word": "Unterhaltung", "type": "Nomen", "category": "Aktivitäten" },
-    { "word": "Erinnerung", "type": "Nomen", "category": "Abstrakt" },
-    { "word": "Zukunft", "type": "Nomen", "category": "Abstrakt" }
+    { "word": "Wissenschaft", "type": "Nomen", "category": "Ausbildung" },
+    { "word": "Gesellschaft", "type": "Nomen", "category": "Soziales" },
+    { "word": "Verantwortung", "type": "Nomen", "category": "Abstrakta" },
+    { "word": "Entwicklung", "type": "Nomen", "category": "Abstrakta" },
+    { "word": "Beziehung", "type": "Nomen", "category": "Abstrakta" },
+    { "word": "Unterhaltung", "type": "Nomen", "category": "Freizeit" },
+    { "word": "Erinnerung", "type": "Nomen", "category": "Abstrakta" },
+    { "word": "Zukunft", "type": "Nomen", "category": "Abstrakta" },
+    { "word": "vergleichen", "type": "Verb", "category": "Kommunikation" },
+    { "word": "begründen", "type": "Verb", "category": "Ausbildung" }
   ]
-} 
+}

@@ -32,7 +32,11 @@ export const register = async (username: string, password: string, age: string, 
         },
         body: JSON.stringify({ username, password, age, motherTongue })
     });
-    return response.json();
+    let data: any = {};
+    try {
+        data = await response.json();
+    } catch {}
+    return { success: response.ok, message: data?.message };
 };
 
 export const logout = async (username: string) => {
