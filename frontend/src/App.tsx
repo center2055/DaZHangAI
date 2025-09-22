@@ -104,7 +104,9 @@ const AppContent = () => {
                 <Routes>
                     <Route path="/" element={
                         !appState.user || !appState.token ? <WelcomePage /> :
-                        appState.user.role === 'teacher' ? <Navigate to="/dashboard" /> :
+                        appState.user.role === 'teacher' ? (
+                            <TeacherDashboard user={appState.user} token={appState.token} />
+                        ) :
                         appState.user.level === null ? <Navigate to="/placement-test" /> :
                         <Hangman user={appState.user} token={appState.token} />
                     } />
